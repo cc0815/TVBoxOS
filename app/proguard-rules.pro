@@ -211,3 +211,6 @@
     public static **[] values();
     public static ** valueOf(java.lang.String);
 }
+# Cronet支持http3
+-keep class com.google.net.cronet.**{*;}
+-keep class org.chromium.net.**{*;}
