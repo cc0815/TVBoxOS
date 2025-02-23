@@ -92,6 +92,21 @@ public class GridAdapter extends BaseQuickAdapter<Movie.Video, BaseViewHolder> {
         //由于部分电视机使用glide报错
         if (!TextUtils.isEmpty(item.pic)) {
             item.pic=item.pic.trim();
+//            if(Base64Img.isBase64Image(item.pic)){
+//                // 如果是 Base64 图片，解码并设置
+//                ivThumb.setImageBitmap(Base64Img.decodeBase64ToBitmap(item.pic));
+//            }else {
+//                Picasso.get()
+//                        .load(DefaultConfig.checkReplaceProxy(item.pic))
+//                        .transform(new RoundTransformation(MD5.string2MD5(item.pic))
+//                                .centerCorp(true)
+//                                .override(AutoSizeUtils.mm2px(mContext, 240), AutoSizeUtils.mm2px(mContext, 320))
+//                                .roundRadius(AutoSizeUtils.mm2px(mContext, 10), RoundTransformation.RoundType.ALL))
+//                        .placeholder(R.drawable.img_loading_placeholder)
+//                        .noFade()
+//                        .error(R.drawable.img_loading_placeholder)
+//                        .into(ivThumb);
+//            }
             Picasso.get()
                     .load(DefaultConfig.checkReplaceProxy(item.pic))
                     .transform(new RoundTransformation(MD5.string2MD5(item.pic))
