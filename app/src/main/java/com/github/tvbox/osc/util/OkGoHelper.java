@@ -8,6 +8,9 @@ import com.github.tvbox.osc.api.ApiConfig;
 import com.github.tvbox.osc.base.App;
 import com.github.tvbox.osc.picasso.MyOkhttpDownLoader;
 import com.github.tvbox.osc.util.SSL.SSLSocketFactoryCompat;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.lzy.okgo.OkGo;
 import com.lzy.okgo.https.HttpsUtils;
 import com.lzy.okgo.interceptor.HttpLoggingInterceptor;
@@ -20,6 +23,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -44,8 +48,14 @@ import xyz.doikki.videoplayer.exo.ExoMediaSourceHelper;
 
 
 public class OkGoHelper {
-    public static final long DEFAULT_MILLISECONDS = 8000;      //默认的超时时间
+    public static final long DEFAULT_MILLISECONDS = 6500;      //默认的超时时间
 
+    // 内置doh json
+    private static final String dnsConfigJson = "["
+            + "{\"name\": \"腾讯\", \"url\": \"https://doh.pub/dns-query\"},"
+            + "{\"name\": \"阿里\", \"url\": \"https://dns.alidns.com/dns-query\"},"
+            + "{\"name\": \"360\", \"url\": \"https://doh.360.cn/dns-query\"}"
+            + "]";
     static OkHttpClient ItvClient = null;
     static void initExoOkHttpClient() {
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
@@ -85,35 +95,66 @@ public class OkGoHelper {
     public static boolean is_doh = false;
     public static Map<String, String> myHosts = null;
 
-
     public static String getDohUrl(int type) {
-        switch (type) {
-            case 1: {
-                return "https://doh.pub/dns-query";
-            }
-            case 2: {
-                return "https://dns.alidns.com/dns-query";
-            }
-            case 3: {
-                return "https://doh.360.cn/dns-query";
-            }
-            case 4: {
-                return "https://dns.adguard.com/dns-query";
-            }
-            case 5: {
-                return "https://dns.quad9.net/dns-query";
-            }
+        String json=Hawk.get(HawkConfig.DOH_JSON,"");
+        if(json.isEmpty())json=dnsConfigJson;
+        JsonArray jsonArray = JsonParser.parseString(json).getAsJsonArray();
+        if (type >= 1 && type < dnsHttpsList.size()) {
+            JsonObject dnsConfig = jsonArray.get(type - 1).getAsJsonObject();
+            return dnsConfig.get("url").getAsString();  // 获取对应的 URL
         }
         return "";
     }
 
-    static void initDnsOverHttps() {
+    public static void setDnsList() {
+        dnsHttpsList.clear();
+        String json=Hawk.get(HawkConfig.DOH_JSON,"");
+        if(json.isEmpty())json=dnsConfigJson;
+        JsonArray jsonArray = JsonParser.parseString(json).getAsJsonArray();
         dnsHttpsList.add("关闭");
-        dnsHttpsList.add("腾讯");
-        dnsHttpsList.add("阿里");
-        dnsHttpsList.add("360");
-        dnsHttpsList.add("AdGuard");
-        dnsHttpsList.add("Quad9");
+        for (int i = 0; i < jsonArray.size(); i++) {
+            JsonObject dnsConfig = jsonArray.get(i).getAsJsonObject();
+            String name = dnsConfig.has("name") ? dnsConfig.get("name").getAsString() : "Unknown Name";
+            dnsHttpsList.add(name);
+        }
+        if(Hawk.get(HawkConfig.DOH_URL, 0)+1>dnsHttpsList.size())Hawk.put(HawkConfig.DOH_URL, 0);
+
+    }
+
+    private static List<InetAddress> DohIps(JsonArray ips) {
+        List<InetAddress> inetAddresses = new ArrayList<>();
+        if (ips != null) {
+            for (int j = 0; j < ips.size(); j++) {
+                try {
+                    InetAddress inetAddress = InetAddress.getByName(ips.get(j).getAsString());
+                    inetAddresses.add(inetAddress);  // 添加到 List 中
+                } catch (Exception e) {
+                    e.printStackTrace();  // 处理无效的 IP 字符串
+                }
+            }
+        }
+        return inetAddresses;
+    }
+
+    static void initDnsOverHttps() {
+        Integer dohSelector=Hawk.get(HawkConfig.DOH_URL, 0);
+        JsonArray ips=null;
+        try {
+            dnsHttpsList.add("关闭");
+            String json=Hawk.get(HawkConfig.DOH_JSON,"");
+            if(json.isEmpty())json=dnsConfigJson;
+            JsonArray jsonArray = JsonParser.parseString(json).getAsJsonArray();
+            if(dohSelector+1>jsonArray.size())Hawk.put(HawkConfig.DOH_URL, 0);
+            for (int i = 0; i < jsonArray.size(); i++) {
+                JsonObject dnsConfig = jsonArray.get(i).getAsJsonObject();
+                String name = dnsConfig.has("name") ? dnsConfig.get("name").getAsString() : "Unknown Name";
+                dnsHttpsList.add(name);
+                if(dohSelector==i)ips = dnsConfig.has("ips") ? dnsConfig.getAsJsonArray("ips") : null;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
         HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor("OkExoPlayer");
         if (Hawk.get(HawkConfig.DEBUG_OPEN, false)) {
@@ -133,10 +174,20 @@ public class OkGoHelper {
         OkHttpClient dohClient = builder.build();
         String dohUrl = getDohUrl(Hawk.get(HawkConfig.DOH_URL, 0));
         if (!dohUrl.isEmpty()) is_doh = true;
-        dnsOverHttps = new DnsOverHttps.Builder()
-                .client(dohClient)
-                .url(dohUrl.isEmpty() ? null : HttpUrl.get(dohUrl))
-                .build();
+//        dnsOverHttps = new DnsOverHttps.Builder()
+//                .client(dohClient)
+//                .url(dohUrl.isEmpty() ? null : HttpUrl.get(dohUrl))
+//                .build();
+        DnsOverHttps.Builder dnsBuilder = new DnsOverHttps.Builder();
+        dnsBuilder.client(dohClient);
+        dnsBuilder.url(dohUrl.isEmpty() ? null : HttpUrl.get(dohUrl));
+        if (is_doh && ips!=null){
+            List<InetAddress> IPS=DohIps(ips);
+            dnsOverHttps = dnsBuilder.bootstrapDnsHosts(IPS).build();
+        }else {
+            dnsOverHttps = dnsBuilder.build();
+        }
+
     }
 
     // 自定义 DNS 解析器
@@ -148,25 +199,29 @@ public class OkGoHelper {
         public List<InetAddress> lookup(@NonNull String hostname) throws UnknownHostException {
             if (myHosts == null){
                 myHosts = ApiConfig.get().getMyHost(); //确保只获取一次减少消耗
-                if(!myHosts.isEmpty())mapHosts(myHosts);
             }
-            // 判断输入是否为 IP 地址
+            if(!myHosts.isEmpty() && myHosts.containsKey(hostname)) {
+                hostname=myHosts.get(hostname);
+            }
+            assert hostname != null;
             if (isValidIpAddress(hostname)) {
                 return Collections.singletonList(InetAddress.getByName(hostname));
-            } else if (!map.isEmpty() && map.containsKey(hostname)) {
-                return Objects.requireNonNull(map.get(hostname));
-            } else {
-//                return (is_doh?dnsOverHttps:Dns.SYSTEM).lookup(hostname);
-                return (dnsOverHttps).lookup(hostname);
+            }
+            else {
+                return  dnsOverHttps.lookup(hostname);
             }
         }
 
-        public synchronized void mapHosts(Map<String,String> hosts) {
+        public synchronized void mapHosts(Map<String,String> hosts) throws UnknownHostException {
             map=new ConcurrentHashMap<>();
             for (Map.Entry<String, String> entry : hosts.entrySet()) {
                 String key = entry.getKey();
                 String value = entry.getValue();
-                map.put(key,getAllByName(value));
+                if(isValidIpAddress(value)){
+                    map.put(key,Collections.singletonList(InetAddress.getByName(value)));
+                }else {
+                    map.put(key,getAllByName(value));
+                }
             }
         }
 
@@ -174,6 +229,7 @@ public class OkGoHelper {
             try {
                 // 获取所有与主机名关联的 IP 地址
                 InetAddress[] allAddresses = InetAddress.getAllByName(host);
+                if(excludeIps.isEmpty())return Arrays.asList(allAddresses);
                 // 创建一个列表用于存储有效的 IP 地址
                 List<InetAddress> validAddresses = new ArrayList<>();
                 Set<String> excludeIpsSet = new HashSet<>();
@@ -193,18 +249,13 @@ public class OkGoHelper {
 
         //简单判断减少开销
         private boolean isValidIpAddress(String str) {
-            // 处理 IPv4 地址的判断
             if (str.indexOf('.') > 0) return isValidIPv4(str);
-            // 处理 IPv6 地址的判断
-            if (str.indexOf(':') > 0) return true;
-            return false;
+            return str.indexOf(':') > 0;
         }
 
         private boolean isValidIPv4(String str) {
             String[] parts = str.split("\\.");
-            // IPv4 地址必须有 4 个部分
             if (parts.length != 4) return false;
-            // 检查每一部分是否是 0-255 的数字
             for (String part : parts) {
                 try {
                     Integer.parseInt(part);

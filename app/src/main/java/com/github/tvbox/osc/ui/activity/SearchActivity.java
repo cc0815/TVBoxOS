@@ -7,12 +7,11 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.KeyEvent;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -28,16 +27,13 @@ import com.github.tvbox.osc.bean.Movie;
 import com.github.tvbox.osc.bean.SourceBean;
 import com.github.tvbox.osc.event.RefreshEvent;
 import com.github.tvbox.osc.event.ServerEvent;
-import com.github.tvbox.osc.server.ControlManager;
 import com.github.tvbox.osc.ui.adapter.PinyinAdapter;
 import com.github.tvbox.osc.ui.adapter.SearchAdapter;
 import com.github.tvbox.osc.ui.dialog.RemoteDialog;
 import com.github.tvbox.osc.ui.dialog.SearchCheckboxDialog;
-import com.github.tvbox.osc.ui.tv.QRCodeGen;
 import com.github.tvbox.osc.ui.tv.widget.SearchKeyboard;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
 import com.github.tvbox.osc.util.HawkConfig;
-import com.github.tvbox.osc.util.LOG;
 import com.github.tvbox.osc.util.SearchHelper;
 import com.github.tvbox.osc.util.js.JSEngine;
 import com.github.tvbox.osc.viewmodel.SourceViewModel;
@@ -237,16 +233,52 @@ public class SearchActivity extends BaseActivity {
                 etSearch.setText("");
             }
         });
-//        etSearch.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                enableKeyboard(SearchActivity.this);
-//                openSystemKeyBoard();//再次尝试拉起键盘
-//                SearchActivity.this.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
-//            }
-//        });
 
-//        etSearch.setOnFocusChangeListener(tvSearchFocusChangeListener);
+        //软键盘
+        etSearch.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_SEARCH || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
+                    String wd = etSearch.getText().toString().trim();
+                    if (!TextUtils.isEmpty(wd)) {
+                        if (Hawk.get(HawkConfig.FAST_SEARCH_MODE, false)) {
+                            Bundle bundle = new Bundle();
+                            bundle.putString("title", wd);
+                            jumpActivity(FastSearchActivity.class, bundle);
+                        } else {
+                            search(wd);
+                        }
+                    } else {
+                        Toast.makeText(mContext, "输入内容不能为空", Toast.LENGTH_SHORT).show();
+                    }
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        // 监听遥控器
+        etSearch.setOnKeyListener(new View.OnKeyListener() {
+            @Override
+            public boolean onKey(View v, int keyCode, KeyEvent event) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN && (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER)) {
+                    String wd = etSearch.getText().toString().trim();
+                    if (!TextUtils.isEmpty(wd)) {
+                        if (Hawk.get(HawkConfig.FAST_SEARCH_MODE, false)) {
+                            Bundle bundle = new Bundle();
+                            bundle.putString("title", wd);
+                            jumpActivity(FastSearchActivity.class, bundle);
+                        } else {
+                            search(wd);
+                        }
+                    } else {
+                        Toast.makeText(mContext, "输入内容不能为空", Toast.LENGTH_SHORT).show();
+                    }
+                    return true;
+                }
+                return false;
+            }
+        });
         keyboard.setOnSearchKeyListener(new SearchKeyboard.OnSearchKeyListener() {
             @Override
             public void onSearchKey(int pos, String key) {

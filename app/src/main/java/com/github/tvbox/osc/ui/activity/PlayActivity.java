@@ -93,8 +93,6 @@ import org.xwalk.core.XWalkWebResourceResponse;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -214,11 +212,16 @@ public class PlayActivity extends BaseActivity {
 
             @Override
             public void replay(boolean replay) {
+                LOG.i("echo-replay");
                 autoRetryCount = 0;
                 if(replay){
                     play(true);
                 }else {
-                    playUrl(webPlayUrl,webHeaderMap);
+                    if(webPlayUrl!=null && !webPlayUrl.isEmpty()) {
+                        playUrl(webPlayUrl,webHeaderMap);
+                    }else {
+                        play(false);
+                    }
                 }
             }
 
@@ -505,15 +508,6 @@ public class PlayActivity extends BaseActivity {
     void playUrl(String url, HashMap<String, String> headers) {
         LOG.i("playUrl:" + url);
         if(autoRetryCount==0)webPlayUrl=url;
-        if(autoRetryCount>1 && url.contains(".m3u8")){
-            try {
-                String url_encode;
-                url_encode=URLEncoder.encode(url,"UTF-8");
-                url = ControlManager.get().getAddress(true) + "proxy?go=bom&url="+ url_encode;
-            }catch (UnsupportedEncodingException e) {
-
-            }
-        }
         final String finalUrl = url;
         runOnUiThread(new Runnable() {
             @Override
@@ -647,7 +641,7 @@ public class PlayActivity extends BaseActivity {
                                             break;
                                     }
                                     String filename = name + (name.toLowerCase().endsWith(ext) ? "" : ext);
-                                    url += "#" + URLEncoder.encode(filename);
+                                    url += "#" + mController.encodeUrl(filename);
                                 }
                                 playSubtitle = url;
                             } catch (Throwable th) {
@@ -694,7 +688,10 @@ public class PlayActivity extends BaseActivity {
                     } catch (Throwable th) {
                     }
                 } else {
-                    errorWithRetry("获取播放信息错误", true);
+                    setTip("获取播放信息错误", false, true);
+//                    获取播放信息错误后只需再重试一次
+//                    autoRetryCount=2;
+//                    errorWithRetry("获取播放信息错误", true);
                 }
             }
         });
@@ -844,7 +841,7 @@ public class PlayActivity extends BaseActivity {
     boolean autoRetry() {
         long currentTime = System.currentTimeMillis();
         // 如果距离上次重试超过 10 秒（10000 毫秒），重置重试次数
-        if (currentTime - lastRetryTime > 10_000) {
+        if (autoRetryCount < 2 && currentTime - lastRetryTime > 10_000) {
             autoRetryCount = 0;
         }
         lastRetryTime = currentTime;  // 更新上次调用时间
@@ -857,12 +854,21 @@ public class PlayActivity extends BaseActivity {
             if(autoRetryCount==1){
                 //第二次重试时重新调用接口
                 play(false);
+                autoRetryCount++;
             }else {
+                if(mController.switchPlayer()){
+                    autoRetryCount++;
+                    webPlayUrl=mController.getWebPlayUrlIfNeeded(webPlayUrl);
+                }else {
+//                    Toast.makeText(mContext, "自动切换播放器重试", Toast.LENGTH_SHORT).show();
+                }
                 //第一次重试直接带着原地址继续播放
-                playUrl(webPlayUrl, webHeaderMap);
+                if(webPlayUrl!=null){
+                    playUrl(webPlayUrl, webHeaderMap);
+                }else {
+                    play(false);
+                }
             }
-            autoRetryCount++;
-//            play(false);
             return true;
         } else {
             autoRetryCount = 0;
@@ -1029,13 +1035,6 @@ public class PlayActivity extends BaseActivity {
 
     ExecutorService parseThreadPool;
 
-    private String encodeUrl(String url) {
-        try {
-            return URLEncoder.encode(url, "UTF-8");
-        } catch (Exception e) {
-            return url;
-        }
-    }
 
     private void doParse(ParseBean pb) {
         stopParse();
@@ -1084,7 +1083,7 @@ public class PlayActivity extends BaseActivity {
             } catch (Throwable e) {
                 e.printStackTrace();
             }
-            OkGo.<String>get(pb.getUrl() + encodeUrl(webUrl))
+            OkGo.<String>get(pb.getUrl() + mController.encodeUrl(webUrl))
                     .tag("json_jx")
                     .headers(reqHeaders)
                     .execute(new AbsCallback<String>() {
