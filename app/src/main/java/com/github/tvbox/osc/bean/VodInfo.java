@@ -84,9 +84,30 @@ public class VodInfo implements Serializable {
 
             seriesMap = new LinkedHashMap<>();
             for (VodSeriesFlag flag : seriesFlags) {
-                seriesMap.put(flag.name, tempSeriesMap.get(flag.name));
+                List<VodSeries> list = tempSeriesMap.get(flag.name);
+                assert list != null;
+                if(isReverse(list))Collections.reverse(list);
+                seriesMap.put(flag.name, list);
             }
         }
+    }
+
+    private int extractNumber(String name) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\d+").matcher(name);
+        if (matcher.find()) {
+            return Integer.parseInt(matcher.group());
+        }
+        return 0;
+    }
+    private boolean isReverse(List<VodInfo.VodSeries> list) {
+        // 循环比较相邻元素
+        for (int i = 0; i < Math.min(list.size()-1,4); i++) {
+            int current = extractNumber(list.get(i).name);
+            int next = extractNumber(list.get(i + 1).name);
+            if (current < next) return false;
+            if (current > next) return true;
+        }
+        return false;
     }
 
     public void reverse() {

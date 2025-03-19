@@ -30,6 +30,7 @@ import com.github.tvbox.osc.ui.adapter.ParseAdapter;
 import com.github.tvbox.osc.ui.adapter.SelectDialogAdapter;
 import com.github.tvbox.osc.ui.dialog.SelectDialog;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
+import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.LOG;
 import com.github.tvbox.osc.util.M3u8;
 import com.github.tvbox.osc.util.PlayerHelper;
@@ -39,10 +40,12 @@ import com.lzy.okgo.OkGo;
 import com.lzy.okgo.callback.AbsCallback;
 import com.lzy.okgo.model.HttpHeaders;
 import com.lzy.okgo.model.Response;
+import com.orhanobut.hawk.Hawk;
 import com.owen.tvrecyclerview.widget.TvRecyclerView;
 import com.owen.tvrecyclerview.widget.V7LinearLayoutManager;
 
 import org.jetbrains.annotations.NotNull;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -59,9 +62,9 @@ import java.util.Date;
 import java.util.Map;
 
 import xyz.doikki.videoplayer.player.VideoView;
-import xyz.doikki.videoplayer.util.PlayerUtils;
 
 import static xyz.doikki.videoplayer.util.PlayerUtils.stringForTime;
+import static xyz.doikki.videoplayer.util.PlayerUtils.seconds2Time;
 
 public class VodController extends BaseController {
     public VodController(@NonNull @NotNull Context context) {
@@ -82,6 +85,10 @@ public class VodController extends BaseController {
                         mBottomRoot.setVisibility(VISIBLE);
                         mTopRoot1.setVisibility(VISIBLE);
                         mTopRoot2.setVisibility(VISIBLE);
+                        mPlayLoadNetSpeedRightTop.setVisibility(VISIBLE);
+                        if(Hawk.get(HawkConfig.SCREEN_DISPLAY,GONE)==GONE){
+                            mPlayPauseTime.setVisibility(VISIBLE);
+                        }
                         mPlayTitle.setVisibility(GONE);
                         mNextBtn.requestFocus();
                         backBtn.setVisibility(ScreenUtils.isTv(context) ? INVISIBLE : VISIBLE);
@@ -91,7 +98,10 @@ public class VodController extends BaseController {
                     case 1003: { // 隐藏底部菜单
                         mBottomRoot.setVisibility(GONE);
                         mTopRoot1.setVisibility(GONE);
-                        mTopRoot2.setVisibility(GONE);
+                        mPlayLoadNetSpeedRightTop.setVisibility(GONE);
+                        if(Hawk.get(HawkConfig.SCREEN_DISPLAY,GONE)==GONE){
+                            mPlayPauseTime.setVisibility(GONE);
+                        }
                         backBtn.setVisibility(INVISIBLE);
                         break;
                     }
@@ -149,7 +159,10 @@ public class VodController extends BaseController {
     public TextView mLandscapePortraitBtn;
     private View backBtn;//返回键
     private boolean isClickBackBtn;
-   
+    TextView seekTime; //右上角进度时间显示
+    TextView mScreenDisplay; //增加屏显开关
+    LinearLayout tv_screen_display; //增加屏显布局
+
     LockRunnable lockRunnable = new LockRunnable();
     private boolean isLock = false;
     Handler myHandle;
@@ -158,14 +171,16 @@ public class VodController extends BaseController {
 
     int videoPlayState = 0;
 
-    private Runnable myRunnable2 = new Runnable() {
+    private final Runnable myRunnable2 = new Runnable() {
+        @SuppressLint("SetTextI18n")
         @Override
         public void run() {
             Date date = new Date();
-            SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss");
+            @SuppressLint("SimpleDateFormat") SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm a");
             mPlayPauseTime.setText(timeFormat.format(date));
-            String speed = PlayerHelper.getDisplaySpeed(mControlWrapper.getTcpSpeed());
-            mPlayLoadNetSpeedRightTop.setText(speed);
+            String speedTop = PlayerHelper.getDisplaySpeed(mControlWrapper.getTcpSpeed(),true);
+            String speed = PlayerHelper.getDisplaySpeed(mControlWrapper.getTcpSpeed(),false);
+            mPlayLoadNetSpeedRightTop.setText(speedTop);
             mPlayLoadNetSpeed.setText(speed);
             String width = Integer.toString(mControlWrapper.getVideoSize()[0]);
             String height = Integer.toString(mControlWrapper.getVideoSize()[1]);
@@ -196,6 +211,7 @@ public class VodController extends BaseController {
         mBottomRoot = findViewById(R.id.bottom_container);
         mTopRoot1 = findViewById(R.id.tv_top_l_container);
         mTopRoot2 = findViewById(R.id.tv_top_r_container);
+        tv_screen_display = findViewById(R.id.tv_screen_display);
         mParseRoot = findViewById(R.id.parse_root);
         mGridView = findViewById(R.id.mGridView);
         mPlayerRetry = findViewById(R.id.play_retry);
@@ -218,6 +234,8 @@ public class VodController extends BaseController {
         mAudioTrackBtn = findViewById(R.id.audio_track_select);
         mLandscapePortraitBtn = findViewById(R.id.landscape_portrait);
         backBtn = findViewById(R.id.tv_back);
+        seekTime = findViewById(R.id.tv_seek_time);
+        mScreenDisplay = findViewById(R.id.screen_display);
         backBtn.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -288,8 +306,6 @@ public class VodController extends BaseController {
         });
         mGridView.setAdapter(parseAdapter);
         parseAdapter.setNewData(ApiConfig.get().getParseBeanList());
-
-        mParseRoot.setVisibility(VISIBLE);
 
         mSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -643,6 +659,19 @@ public class VodController extends BaseController {
                 hideBottom();
             }
         });
+        //屏显
+        int disPlay = Hawk.get(HawkConfig.SCREEN_DISPLAY, GONE);
+        seekTime.setVisibility(disPlay);
+        mPlayPauseTime.setVisibility(disPlay);
+        mScreenDisplay.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                int disPlay =(Hawk.get(HawkConfig.SCREEN_DISPLAY, GONE) == VISIBLE) ? GONE : VISIBLE;
+                seekTime.setVisibility(disPlay);
+                if(disPlay==VISIBLE)mPlayPauseTime.setVisibility(disPlay);
+                Hawk.put(HawkConfig.SCREEN_DISPLAY, disPlay);
+            }
+        });
         mNextBtn.setNextFocusLeftId(R.id.play_time_start);
     }
 
@@ -717,8 +746,8 @@ public class VodController extends BaseController {
             mPlayerIJKBtn.setVisibility(playerType == 1 ? VISIBLE : GONE);
             mPlayerScaleBtn.setText(PlayerHelper.getScaleName(mPlayerConfig.getInt("sc")));
             mPlayerSpeedBtn.setText("x" + mPlayerConfig.getDouble("sp"));
-            mPlayerTimeStartBtn.setText(PlayerUtils.stringForTime(mPlayerConfig.getInt("st") * 1000));
-            mPlayerTimeSkipBtn.setText(PlayerUtils.stringForTime(mPlayerConfig.getInt("et") * 1000));
+            mPlayerTimeStartBtn.setText(stringForTime(mPlayerConfig.getInt("st") * 1000));
+            mPlayerTimeSkipBtn.setText(stringForTime(mPlayerConfig.getInt("et") * 1000));
             mAudioTrackBtn.setVisibility((playerType == 1) ? VISIBLE : GONE);
         } catch (JSONException e) {
             e.printStackTrace();
@@ -770,6 +799,7 @@ public class VodController extends BaseController {
 
     private boolean skipEnd = true;
 
+    @SuppressLint("SetTextI18n")
     @Override
     protected void setProgress(int duration, int position) {
 
@@ -789,8 +819,9 @@ public class VodController extends BaseController {
                 listener.playNext(true);
             }
         }
-        mCurrentTime.setText(PlayerUtils.stringForTime(position));
-        mTotalTime.setText(PlayerUtils.stringForTime(duration));
+        mCurrentTime.setText(stringForTime(position));
+        mTotalTime.setText(stringForTime(duration));
+        seekTime.setText((seconds2Time(position)) + " | " + (seconds2Time(duration))); //右上角进度条时间显示
         if (duration > 0) {
             mSeekBar.setEnabled(true);
             int pos = (int) (position * 1.0 / duration * mSeekBar.getMax());
@@ -846,7 +877,7 @@ public class VodController extends BaseController {
         } else {
             mProgressIcon.setImageResource(R.drawable.icon_back);
         }
-        mProgressText.setText(PlayerUtils.stringForTime(seekTo) + " / " + PlayerUtils.stringForTime(duration));
+        mProgressText.setText(stringForTime(seekTo) + " / " + stringForTime(duration));
         mHandler.sendEmptyMessage(1000);
         mHandler.removeMessages(1001);
         mHandler.sendEmptyMessageDelayed(1001, 1000);
@@ -865,7 +896,8 @@ public class VodController extends BaseController {
                 break;
             case VideoView.STATE_PAUSED:
                 mTopRoot1.setVisibility(GONE);
-                mTopRoot2.setVisibility(GONE);
+//                mTopRoot2.setVisibility(GONE);
+                mPlayLoadNetSpeedRightTop.setVisibility(GONE);
                 mPlayTitle.setVisibility(VISIBLE);
                 break;
             case VideoView.STATE_ERROR:
@@ -1062,11 +1094,10 @@ public class VodController extends BaseController {
             int playerType= mPlayerConfig.getInt("pl");
             int p_type = (playerType == 1) ? playerType + 1 : (playerType == 2) ? playerType - 1 : playerType;
             if (p_type != playerType) {
-                LOG.i("echo-切换播放器");
+                Toast.makeText(getContext(), "切换到"+(p_type==1?"IJK":"EXO")+"播放器重试", Toast.LENGTH_SHORT).show();
                 mPlayerConfig.put("pl", p_type);
                 updatePlayerCfgView();
                 listener.updatePlayerCfg();
-//                listener.replay(false);
             }else {
                 return true;
             }
@@ -1082,6 +1113,10 @@ public class VodController extends BaseController {
     }
 
     public void playM3u8(final String url, final HashMap<String, String> headers) {
+        if(url.contains("url=")){
+            listener.startPlayUrl(url, headers);
+            return;
+        }
         OkGo.getInstance().cancelTag("m3u8-1");
         OkGo.getInstance().cancelTag("m3u8-2");
         final HttpHeaders okGoHeaders = new HttpHeaders();
@@ -1199,5 +1234,21 @@ public class VodController extends BaseController {
             LOG.e("echo-resolveForwardUrl异常: " + e.getMessage());
             return line;
         }
+    }
+
+    public String firstUrlByArray(String url)
+    {
+        try {
+            JSONArray urlArray = new JSONArray(url);
+            for (int i = 0; i < urlArray.length(); i++) {
+                String item = urlArray.getString(i);
+                if (item.contains("http")) {
+                    url = item;
+                    break; // 找到第一个立即终止循环
+                }
+            }
+        } catch (JSONException e) {
+        }
+        return url;
     }
 }

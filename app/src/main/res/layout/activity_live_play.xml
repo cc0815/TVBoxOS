@@ -11,91 +11,24 @@
         android:id="@+id/mVideoView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
-	<LinearLayout
 
-		android:layout_gravity="bottom|center"
-		android:layout_width="fill_parent"
-		android:layout_height="@dimen/vs_200"
-		android:gravity="bottom|center_vertical"
-		android:orientation="vertical"
-		android:id="@+id/backcontroller"
-		android:layout_weight="1"
-		android:paddingBottom="20dp"
-		android:visibility="invisible"
-		android:layout_marginBottom="0dp">
-		<LinearLayout
-			android:layout_width="fill_parent"
-			android:layout_height="0dp"
-			android:layout_weight="1"
-			android:id="@+id/ll_play"
-			android:gravity="center"
-			android:visibility="gone"
-			android:orientation="vertical">
-			<ImageView
-				android:layout_width="120sp"
-				android:layout_height="120sp"
-				android:id="@+id/iv_play"
-				android:visibility="gone"
-				android:background="@drawable/vod_pause"/>
-
-		</LinearLayout>
-
-
-		<LinearLayout
-			android:layout_width="fill_parent"
-			android:layout_height="wrap_content"
-			android:layout_marginLeft="@dimen/vs_70"
-			android:layout_marginRight="@dimen/vs_70"
-			android:layout_marginBottom="@dimen/vs_60"
-			android:paddingLeft="10dp"
-			android:paddingRight="10dp"
-			android:paddingTop="5dp"
-			android:paddingBottom="5dp"
-			android:gravity="center"
-			android:background="@drawable/bg_progress_bar_out"
-			android:orientation="horizontal" >
-			<ImageView
-				android:layout_width="30dp"
-				android:layout_height="30dp"
-				android:id="@+id/iv_playpause"
-				android:background="@drawable/vod_pause"/>
-
-			<TextView
-				android:id="@+id/tv_currentpos"
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:layout_marginLeft="15dp"
-				android:layout_marginRight="5dp"
-				android:text="00:00:00"
-				android:textColor="#fff" />
-			<SeekBar
-				android:id="@+id/pb_progressbar"
-				android:padding="6dp"
-				android:layout_width="0dp"
-				android:layout_height="30dp"
-				android:maxHeight="3dp"
-				android:max="100"
-				android:progress="30"
-				android:progressDrawable="@drawable/seekbar_style"
-				android:minHeight="3dp"
-				android:thumb="@drawable/transparent"
-				android:thumbOffset="0dp"
-				android:layout_weight="1"
-				android:paddingStart="5dp"
-				android:paddingEnd="5dip"
-				android:paddingLeft="5dp"
-				android:paddingRight="5dip" />
-
-			<TextView
-				android:id="@+id/tv_duration"
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:layout_marginLeft="5dp"
-				android:text="00:00:00"
-				android:textColor="#fff" />
-		</LinearLayout>
-
-	</LinearLayout>
+	<TextView
+		android:id="@+id/tv_selected_channel"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:layout_gravity="top|end"
+		android:layout_margin="20dp"
+		android:background="@android:color/transparent"
+		android:clickable="false"
+		android:focusable="false"
+		android:shadowColor="@color/color_1890FF"
+		android:shadowDx="2"
+		android:shadowDy="2"
+		android:shadowRadius="1"
+		android:textColor="@android:color/white"
+		android:textSize="96sp"
+		android:textStyle="bold"
+		android:visibility="invisible" />
 
 	<LinearLayout
 		android:id="@+id/tvLeftChannnelListLayout"
@@ -144,7 +77,8 @@
 				android:focusable="true"
 				android:onClick="divLoadEpgLeft"
 				android:orientation="vertical"
-				android:visibility="gone">
+				android:visibility="gone"
+				tools:ignore="UsingOnClickInXml">
 
 				<TextView
 					android:id="@+id/tv_arrow0"
@@ -156,9 +90,10 @@
 					android:shadowColor="#CC000000"
 					android:shadowDx="5.0"
 					android:shadowRadius="5.0"
-					android:text="更 多"
+					android:text="@string/_more_"
 					android:textColor="@color/color_FFFFFF"
-					android:textStyle="bold" />
+					android:textStyle="bold"
+					tools:ignore="UsingOnClickInXml" />
 
 				<ImageView
 					android:id="@+id/iv_arrow2"
@@ -168,7 +103,8 @@
 					android:onClick="divLoadEpgLeft"
 					android:paddingLeft="-5dp"
 					android:paddingTop="5dp"
-					android:src="@drawable/scrollviewleft" />
+					android:src="@drawable/scrollviewleft"
+					tools:ignore="RtlHardcoded,RtlSymmetry,UsingOnClickInXml" />
 
 				<TextView
 					android:id="@+id/tv_arrow3"
@@ -258,7 +194,7 @@
 			</LinearLayout>
 			<LinearLayout
 				android:id="@+id/divEPG"
-				android:layout_width="@dimen/vs_480"
+				android:layout_width="@dimen/vs_300"
 				android:layout_height="match_parent"
 				android:layout_gravity="center_horizontal"
 				android:orientation="horizontal"
@@ -394,7 +330,6 @@
         android:textSize="22mm"
         android:visibility="gone" />
 
-
 	<!--频道序号显示-->
 	<RelativeLayout
 		android:layout_gravity="bottom|center"
@@ -469,7 +404,7 @@
 					android:ellipsize='marquee'
 					android:singleLine="true"
 					android:textColor="@android:color/white"
-					android:textSize="@dimen/vs_60"
+					android:textSize="@dimen/vs_50"
 					android:textStyle="bold"
 					tools:ignore="EllipsizeMaxLines" />
 				<ImageView
@@ -523,6 +458,8 @@
 			android:textColor="@color/color_FFFFFF"
 			android:ellipsize="marquee"
 			android:id="@+id/tv_current_program_time"
+			android:fontFamily="monospace"
+			android:textScaleX="0.95"
 			android:layout_width="wrap_content"
 			android:layout_height="wrap_content"
 			android:text="暂无信息"
@@ -572,6 +509,8 @@
 			android:textSize="@dimen/ts_26"
 			android:textColor="@color/color_FFFFFF"
 			android:id="@+id/tv_next_program_time"
+			android:fontFamily="monospace"
+			android:textScaleX="0.95"
 			android:layout_width="wrap_content"
 			android:layout_height="wrap_content"
 			android:text="暂无信息"
@@ -642,7 +581,7 @@
 
 	<!--右上角回看状态栏-->
 	<RelativeLayout
-		android:layout_gravity="center|left|bottom"
+		android:layout_gravity="center|right|top"
 		android:orientation="vertical"
 		android:id="@+id/ll_right_top_huikan"
 		android:visibility="gone"
@@ -709,72 +648,138 @@
 			android:paddingLeft="20px" />
 	</RelativeLayout>
 
-
-
-	<!--右上角动态状态栏-->
 	<RelativeLayout
 		android:layout_gravity="center|right|top"
-		android:orientation="vertical"
 		android:id="@+id/ll_right_top_loading"
 		android:background="@drawable/shape_user_search"
 		android:layout_width="@dimen/vs_240"
 		android:layout_height="@dimen/vs_70"
 		android:layout_marginTop="25mm"
 		android:layout_marginRight="25mm"
-
 		android:minWidth="270px">
 		<ImageView
 			android:id="@+id/iv_circle_bg"
 			android:layout_width="@dimen/vs_40"
 			android:layout_height="@dimen/vs_40"
-			android:layout_marginRight="@dimen/vs_10"
-			android:src="@drawable/app_icon"
-			android:layout_alignParentTop="true"
 			android:layout_alignParentRight="true"
-			android:layout_alignParentBottom="true" />
-		<ImageView
-			android:layout_width="@dimen/vs_40"
-			android:layout_height="@dimen/vs_40"
-			android:layout_margin="@dimen/vs_10"
-			android:layout_alignLeft="@+id/iv_circle_bg"
-			android:layout_alignTop="@+id/iv_circle_bg"
-			android:layout_alignRight="@+id/iv_circle_bg"
-			android:layout_alignBottom="@+id/iv_circle_bg" />
-
+			android:layout_centerVertical="true"
+			android:layout_marginRight="@dimen/vs_10"
+			android:src="@drawable/app_icon" />
 		<com.github.tvbox.osc.ui.tv.widget.MarqueeTextView
 			android:id="@+id/tv_right_top_channel_name"
 			android:layout_width="@dimen/vs_150"
 			android:layout_height="wrap_content"
-			android:layout_alignParentTop="true"
-			android:layout_marginEnd="@dimen/vs_5"
-			android:layout_marginRight="@dimen/vs_5"
-			android:layout_toStartOf="@+id/iv_circle_bg"
-			android:layout_toLeftOf="@+id/iv_circle_bg"
 			android:ellipsize="marquee"
 			android:gravity="center"
 			android:marqueeRepeatLimit="marquee_forever"
 			android:singleLine="true"
 			android:text="测试频道"
 			android:textColor="#FFFCFFFF"
-			android:textSize="@dimen/vs_30" />
-
-		<TextView
-			android:id="@+id/tv_right_top_tipnetspeed"
-			android:layout_width="@dimen/vs_150"
-			android:layout_height="wrap_content"
-			android:layout_alignParentBottom="true"
-			android:layout_gravity="center"
-			android:layout_marginEnd="@dimen/vs_5"
-			android:layout_marginRight="@dimen/vs_5"
-			android:layout_toStartOf="@+id/iv_circle_bg"
-			android:layout_toLeftOf="@+id/iv_circle_bg"
-			android:gravity="center"
-			android:singleLine="true"
-			android:text=""
-			tools:text="0Kb/s"
-			android:textColor="#FFFCFFFF"
-			android:textSize="@dimen/vs_20" />
+			android:textSize="@dimen/vs_28"
+			android:layout_toLeftOf="@id/iv_circle_bg"
+			android:layout_centerVertical="true"
+			android:layout_marginRight="10dp" />
 	</RelativeLayout>
 
+	<RelativeLayout
+		android:id="@+id/backcontroller"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_alignParentBottom="true"
+		android:layout_marginBottom="10mm"
+		android:visibility="visible"
+		android:elevation="10dp"
+		android:background="@android:color/transparent">
 
+		<!-- 可选：上面区域 ll_play，默认隐藏 -->
+		<LinearLayout
+			android:id="@+id/ll_play"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:gravity="center"
+			android:orientation="vertical"
+			android:visibility="gone"
+			android:layout_alignParentTop="true">
+			<ImageView
+				android:id="@+id/iv_play"
+				android:layout_width="120sp"
+				android:layout_height="120sp"
+				android:visibility="gone"
+				android:background="@drawable/vod_pause" />
+		</LinearLayout>
+
+		<!-- 进度条控制区域 -->
+		<LinearLayout
+			android:id="@+id/progress_container"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_below="@id/ll_play"
+			android:layout_alignParentBottom="true"
+			android:layout_marginLeft="@dimen/vs_70"
+			android:layout_marginRight="@dimen/vs_70"
+			android:layout_marginBottom="@dimen/vs_60"
+			android:paddingLeft="10dp"
+			android:paddingRight="10dp"
+			android:paddingTop="5dp"
+			android:paddingBottom="5dp"
+			android:gravity="center"
+			android:background="@drawable/shape_dialog_filter_bg"
+			android:orientation="horizontal">
+
+			<ImageView
+				android:id="@+id/iv_playpause"
+				android:layout_width="30dp"
+				android:layout_height="30dp"
+				android:background="@drawable/vod_pause" />
+
+			<TextView
+				android:id="@+id/tv_currentpos"
+				android:layout_width="50dp"
+				android:layout_height="wrap_content"
+				android:paddingEnd="@dimen/vs_10"
+				android:paddingRight="@dimen/vs_10"
+				android:text="@string/_00_00_00"
+				android:textColor="#fff"
+				android:singleLine="true"
+				android:ellipsize="end"
+				android:gravity="end"
+				android:textAllCaps="true"
+				android:includeFontPadding="false"
+				/>
+
+			<!-- 为了在 RelativeLayout 内部使用 weight，需要将该区域改为 LinearLayout，
+                 或者使用固定宽度，这里继续采用 LinearLayout 的权重分配 -->
+			<LinearLayout
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:layout_weight="1">
+				<SeekBar
+					android:id="@+id/pb_progressbar"
+					android:layout_width="match_parent"
+					android:layout_height="30dp"
+					android:padding="2dp"
+					android:maxHeight="3dp"
+					android:minHeight="3dp"
+					android:max="100"
+					android:progress="30"
+					android:progressDrawable="@drawable/shape_player_control_vod_seek"
+					android:thumb="@drawable/shape_player_control_vod_seek_thumb"
+					android:thumbOffset="@dimen/vs_0" />
+			</LinearLayout>
+
+			<TextView
+				android:id="@+id/tv_duration"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:paddingEnd="@dimen/vs_10"
+				android:paddingRight="@dimen/vs_10"
+				android:text="@string/_00_00_00"
+				android:textColor="#fff"
+				android:singleLine="true"
+				android:ellipsize="end"
+				android:gravity="start"
+			    android:textAllCaps="true"
+			    android:includeFontPadding="false"/>
+		</LinearLayout>
+	</RelativeLayout>
 </FrameLayout>

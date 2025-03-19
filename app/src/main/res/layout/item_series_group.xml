@@ -6,6 +6,7 @@
     android:background="@drawable/shape_source_flag_focus"
     android:clickable="true"
     android:focusable="true"
+    android:nextFocusUp="@id/mGridViewFlag"
     android:orientation="vertical"
     android:paddingLeft="@dimen/vs_10"
     android:paddingTop="@dimen/vs_5"

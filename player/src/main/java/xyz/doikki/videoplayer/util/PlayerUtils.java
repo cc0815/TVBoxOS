@@ -276,6 +276,17 @@ public final class PlayerUtils {
     }
 
     /**
+     * 格式化时间2
+     */
+    public static String seconds2Time(int timeMs) {
+        int totalSeconds = timeMs / 1000;
+
+        int seconds = totalSeconds % 60;
+        int minutes = (totalSeconds / 60);
+        return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
+    }
+
+    /**
      * 获取集合的快照
      */
     @NonNull

@@ -11,10 +11,11 @@ import com.chad.library.adapter.base.BaseViewHolder;
 import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.api.ApiConfig;
 import com.github.tvbox.osc.bean.Movie;
+import com.github.tvbox.osc.bean.SourceBean;
 import com.github.tvbox.osc.picasso.RoundTransformation;
-import com.github.tvbox.osc.util.Base64Img;
 import com.github.tvbox.osc.util.DefaultConfig;
 import com.github.tvbox.osc.util.HawkConfig;
+import com.github.tvbox.osc.util.ImgUtil;
 import com.github.tvbox.osc.util.MD5;
 import com.orhanobut.hawk.Hawk;
 import com.squareup.picasso.Picasso;
@@ -41,7 +42,12 @@ public class HomeHotVodAdapter extends BaseQuickAdapter<Movie.Video, BaseViewHol
 
         TextView tvRate = helper.getView(R.id.tvRate);
         if (Hawk.get(HawkConfig.HOME_REC, 0) == 2){
-            tvRate.setText(ApiConfig.get().getSource(item.sourceKey).getName());
+            SourceBean bean =  ApiConfig.get().getSource(item.sourceKey);
+            if(bean!=null){
+                tvRate.setText(bean.getName());
+            }else {
+                tvRate.setText("搜");
+            }
         }else if(Hawk.get(HawkConfig.HOME_REC, 0) == 0){
             tvRate.setText("豆瓣热播");
         }else {
@@ -60,9 +66,9 @@ public class HomeHotVodAdapter extends BaseQuickAdapter<Movie.Video, BaseViewHol
         //由于部分电视机使用glide报错
         if (!TextUtils.isEmpty(item.pic)) {
             item.pic=item.pic.trim();
-            if(Base64Img.isBase64Image(item.pic)){
+            if(ImgUtil.isBase64Image(item.pic)){
                 // 如果是 Base64 图片，解码并设置
-                ivThumb.setImageBitmap(Base64Img.decodeBase64ToBitmap(item.pic));
+                ivThumb.setImageBitmap(ImgUtil.decodeBase64ToBitmap(item.pic));
             }else {
                 Picasso.get()
                         .load(DefaultConfig.checkReplaceProxy(item.pic))
@@ -72,11 +78,11 @@ public class HomeHotVodAdapter extends BaseQuickAdapter<Movie.Video, BaseViewHol
                                 .roundRadius(AutoSizeUtils.mm2px(mContext, 10), RoundTransformation.RoundType.ALL))
                         .placeholder(R.drawable.img_loading_placeholder)
                         .noFade()
-                        .error(R.drawable.img_loading_placeholder)
+                        .error(ImgUtil.createTextDrawable(item.name))
                         .into(ivThumb);
             }
         } else {
-            ivThumb.setImageResource(R.drawable.img_loading_placeholder);
+            ivThumb.setImageDrawable(ImgUtil.createTextDrawable(item.name));
         }
     }
 }

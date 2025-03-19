@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
@@ -9,14 +10,13 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="@dimen/vs_50"
-                android:layout_marginTop="@dimen/vs_10"
-                android:layout_marginBottom="@dimen/vs_10"
-        android:paddingLeft="20mm"
-       >
+        android:layout_marginTop="@dimen/vs_10"
+        android:layout_marginBottom="@dimen/vs_10"
+        android:paddingLeft="20mm">
 
         <TextView
             android:id="@+id/mSearchTitle"
-            android:layout_width="@dimen/vs_180"
+            android:layout_width="@dimen/vs_200"
             android:layout_height="match_parent"
             android:text="搜索(0/0)"
             android:layout_gravity="center_horizontal"
@@ -44,7 +44,7 @@
 
         <LinearLayout
             android:id="@+id/llWord"
-            android:layout_width="@dimen/vs_180"
+            android:layout_width="@dimen/vs_200"
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:paddingLeft="20mm"
@@ -69,7 +69,8 @@
             android:orientation="vertical"
             android:paddingLeft="20mm"
             android:paddingBottom="@dimen/vs_20"
-            android:paddingRight="20mm" >
+            android:paddingRight="20mm"
+            tools:ignore="InOrMmUsage">
 
 
             <com.owen.tvrecyclerview.widget.TvRecyclerView

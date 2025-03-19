@@ -47,6 +47,10 @@ public class BackupDialog extends BaseDialog {
                 if (view.getId() == R.id.tvName) {
                     restore((String) adapter.getItem(position));
                 }
+                else if (view.getId() == R.id.tvDel) {
+                    delete((String) adapter.getItem(position));
+                    adapter.setNewData(allBackup());
+                }
             }
         });
         findViewById(R.id.backupNow).setOnClickListener(new View.OnClickListener() {
@@ -187,6 +191,17 @@ public class BackupDialog extends BaseDialog {
         } catch (Throwable e) {
             e.printStackTrace();
             Toast.makeText(getContext(), "备份失败!", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    void delete(String dir) {
+        try {
+            String root = Environment.getExternalStorageDirectory().getAbsolutePath();
+            File backup = new File(root + "/tvbox_backup/" + dir);
+            FileUtils.recursiveDelete(backup);
+            Toast.makeText(getContext(), "删除成功!", Toast.LENGTH_SHORT).show();
+        } catch (Throwable e) {
+            e.printStackTrace();
         }
     }
 }

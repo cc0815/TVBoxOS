@@ -161,10 +161,10 @@ public class PlayFragment extends BaseLazyFragment {
             try {
                 rec = Long.parseLong((String) theCache);
             } catch (NumberFormatException e) {
-                System.out.println("String value is not a valid long.");
+                LOG.i("echo-String value is not a valid long.");
             }
         } else {
-            System.out.println("Value cannot be converted to long.");
+            LOG.i("echo-Value cannot be converted to long.");
         }
         return Math.max(rec, skip);
     }
@@ -236,6 +236,9 @@ public class PlayFragment extends BaseLazyFragment {
                     play(true);
                 }else {
                     if(webPlayUrl!=null && !webPlayUrl.isEmpty()) {
+                        stopParse();
+                        initParseLoadFound();
+                        if(mVideoView!=null) mVideoView.release();
                         goPlayUrl(webPlayUrl,webHeaderMap);
                     }else {
                         play(false);
@@ -406,10 +409,7 @@ public class PlayFragment extends BaseLazyFragment {
 
             @Override
             public String getDisplay(TrackInfoBean val) {
-                String name = val.name.replace("AUDIO,", "");
-                name = name.replace("N/A,", "");
-                name = name.replace(" ", "");
-                return val.index + " : " + val.language + " : " + name;
+                return val.index + " . " + val.language + " : " + val.name;
             }
         }, new DiffUtil.ItemCallback<TrackInfoBean>() {
             @Override
@@ -592,6 +592,11 @@ public class PlayFragment extends BaseLazyFragment {
             if (trackInfo != null && trackInfo.getSubtitle().size() > 0) {
                 mController.mSubtitleView.hasInternal = true;
             }
+            //默认选中第一个音轨 一般第一个音轨是国语
+            if (trackInfo != null && trackInfo.getAudio().size() > 1) {
+                int firsIndex=trackInfo.getAudio().get(0).index;
+                ((IjkMediaPlayer)(mVideoView.getMediaPlayer())).setTrack(firsIndex);
+            }
             ((IjkMediaPlayer)(mVideoView.getMediaPlayer())).setOnTimedTextListener(new IMediaPlayer.OnTimedTextListener() {
                 @Override
                 public void onTimedText(IMediaPlayer mp, IjkTimedText text) {
@@ -634,11 +639,6 @@ public class PlayFragment extends BaseLazyFragment {
                 }
             }
         }
-//        if (trackInfo != null && trackInfo.getAudio().size()>0) {
-//            List<TrackInfoBean> audioTrackList = trackInfo.getAudio();
-////            int selectedIndex = trackInfo.getAudioSelected(false);
-//            ((IjkMediaPlayer)(mVideoView.getMediaPlayer())).setTrack(audioTrackList.get(0).index);
-//        }
     }
 
     private void initViewModel() {
@@ -646,6 +646,7 @@ public class PlayFragment extends BaseLazyFragment {
         sourceViewModel.playResult.observe(this, new Observer<JSONObject>() {
             @Override
             public void onChanged(JSONObject info) {
+                webPlayUrl = null;
                 if (info != null) {
                     try {
                         progressKey = info.optString("proKey", null);
@@ -689,10 +690,12 @@ public class PlayFragment extends BaseLazyFragment {
                         }
                         String flag = info.optString("flag");
                         String url = info.getString("url");
+                        if(url.startsWith("[")){
+                            url=mController.firstUrlByArray(url);
+                        }
                         HashMap<String, String> headers = null;
                         webUserAgent = null;
                         webHeaderMap = null;
-                        webPlayUrl = null;
                         if (info.has("header")) {
                             try {
                                 JSONObject hds = new JSONObject(info.getString("header"));
@@ -910,6 +913,9 @@ public class PlayFragment extends BaseLazyFragment {
                 }
                 //第一次重试直接带着原地址继续播放
                 if(webPlayUrl!=null){
+                    stopParse();
+                    initParseLoadFound();
+                    if(mVideoView!=null) mVideoView.release();
                     playUrl(webPlayUrl, webHeaderMap);
                 }else {
                     play(false);
@@ -1307,6 +1313,11 @@ public class PlayFragment extends BaseLazyFragment {
         }
     }
 
+
+    public MyVideoView getPlayer() {
+        return mVideoView;
+    }
+
     // webview
     private XWalkView mXwalkWebView;
     private WebView mSysWebView;
@@ -1403,7 +1414,7 @@ public class PlayFragment extends BaseLazyFragment {
                     mXwalkWebView.stopLoading();
                     mXwalkWebView.loadUrl("about:blank");
                     if (destroy) {
-//                        mXwalkWebView.clearCache(true);
+                        mXwalkWebView.clearCache(true);
                         mXwalkWebView.removeAllViews();
                         mXwalkWebView.onDestroy();
                         mXwalkWebView = null;
@@ -1413,7 +1424,7 @@ public class PlayFragment extends BaseLazyFragment {
                     mSysWebView.stopLoading();
                     mSysWebView.loadUrl("about:blank");
                     if (destroy) {
-//                        mSysWebView.clearCache(true);
+                        mSysWebView.clearCache(true);
                         mSysWebView.removeAllViews();
                         mSysWebView.destroy();
                         mSysWebView = null;

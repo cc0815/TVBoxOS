@@ -75,6 +75,7 @@ public class ModelSettingFragment extends BaseLazyFragment {
     private TextView tvm3u8AdText;
     private TextView tvRecStyleText;
     private TextView tvIjkCachePlay;
+    private TextView tvHomeDefaultShow;
 
     public static ModelSettingFragment newInstance() {
         return new ModelSettingFragment().setArguments();
@@ -126,6 +127,8 @@ public class ModelSettingFragment extends BaseLazyFragment {
         tvPlay.setText(PlayerHelper.getPlayerName(Hawk.get(HawkConfig.PLAY_TYPE, 0)));
         tvRender.setText(PlayerHelper.getRenderName(Hawk.get(HawkConfig.PLAY_RENDER, 0)));
         tvIjkCachePlay.setText(Hawk.get(HawkConfig.IJK_CACHE_PLAY, false) ? "开启" : "关闭");
+        tvHomeDefaultShow = findViewById(R.id.tvHomeText);
+        tvHomeDefaultShow.setText(Hawk.get(HawkConfig.DEFAULT_LOAD_LIVE, false) ? "直播" : "点播");
         findViewById(R.id.llDebug).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -206,10 +209,12 @@ public class ModelSettingFragment extends BaseLazyFragment {
             @Override
             public void onClick(View v) {
                 FastClickCheckUtil.check(v);
-                List<SourceBean> sites = ApiConfig.get().getSourceBeanList();
+                List<SourceBean> sites = ApiConfig.get().getSwitchSourceBeanList();
                 if (sites.size() > 0) {
                     SelectDialog<SourceBean> dialog = new SelectDialog<>(mActivity);
                     dialog.setTip("请选择首页数据源");
+                    int select = sites.indexOf(ApiConfig.get().getHomeSourceBean());
+                    if (select<0) select = 0;
                     dialog.setAdapter(new SelectDialogAdapter.SelectDialogInterface<SourceBean>() {
                         @Override
                         public void click(SourceBean value, int pos) {
@@ -238,7 +243,7 @@ public class ModelSettingFragment extends BaseLazyFragment {
                         public boolean areContentsTheSame(@NonNull @NotNull SourceBean oldItem, @NonNull @NotNull SourceBean newItem) {
                             return oldItem.getKey().equals(newItem.getKey());
                         }
-                    }, sites, sites.indexOf(ApiConfig.get().getHomeSourceBean()));
+                    }, sites, select);
                     dialog.show();
                 }
             }
@@ -319,6 +324,15 @@ public class ModelSettingFragment extends BaseLazyFragment {
                     @Override
                     public void click(String value) {
                         Hawk.put(HawkConfig.API_URL, value);
+                        Hawk.put(HawkConfig.LIVE_API_URL, value);
+                        ArrayList<String> history = Hawk.get(HawkConfig.LIVE_API_HISTORY, new ArrayList<String>());
+                        if (!history.contains(value)) {
+                            history.add(0, value);
+                        }
+                        if (history.size() > 30) {
+                            history.remove(30);
+                        }
+                        Hawk.put(HawkConfig.LIVE_API_HISTORY, history);
                         tvApi.setText(value);
                         dialog.dismiss();
                     }
@@ -698,6 +712,16 @@ public class ModelSettingFragment extends BaseLazyFragment {
                 }, 500);
 
 
+            }
+        });
+
+        //下次进入
+        findViewById(R.id.tvHomeLive).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                FastClickCheckUtil.check(v);
+                Hawk.put(HawkConfig.DEFAULT_LOAD_LIVE, !Hawk.get(HawkConfig.DEFAULT_LOAD_LIVE, false));
+                tvHomeDefaultShow.setText(Hawk.get(HawkConfig.DEFAULT_LOAD_LIVE, false) ? "直播" : "点播");
             }
         });
 
