@@ -29,6 +29,7 @@ import com.github.tvbox.osc.ui.dialog.GridFilterDialog;
 import com.github.tvbox.osc.ui.tv.widget.LoadMoreView;
 import com.github.tvbox.osc.util.FastClickCheckUtil;
 import com.github.tvbox.osc.util.HawkConfig;
+import com.github.tvbox.osc.util.ImgUtil;
 import com.github.tvbox.osc.util.LOG;
 import com.github.tvbox.osc.viewmodel.SourceViewModel;
 import com.orhanobut.hawk.Hawk;
@@ -44,6 +45,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import org.greenrobot.eventbus.EventBus;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * @author pj567
@@ -61,7 +64,8 @@ public class GridFragment extends BaseLazyFragment {
     private boolean isLoad = false;
     private boolean isTop = true;
     private View focusedView = null;
-    private class GridInfo{
+
+    private static class GridInfo{
         public String sortID="";
         public TvRecyclerView mGridView;
         public GridAdapter gridAdapter;
@@ -95,7 +99,7 @@ public class GridFragment extends BaseLazyFragment {
 
     private void changeView(String id,Boolean isFolder){
         if(isFolder){
-            this.sortData.flag ="1"; // 修改sortData.flag
+            this.sortData.flag =style==null?"1":"2"; // 修改sortData.flag
         }else {
             this.sortData.flag ="2"; // 修改sortData.flag
         }
@@ -107,7 +111,7 @@ public class GridFragment extends BaseLazyFragment {
     public boolean isFolederMode(){ return (getUITag() =='1'); }
     // 获取当前页面UI的显示模式 ‘0’ 正常模式 '1' 文件夹模式 '2' 显示缩略图的文件夹模式
     public char getUITag(){
-        return (sortData == null || sortData.flag == null || sortData.flag.length() ==0 ) ?  '0' : sortData.flag.charAt(0);
+        return (sortData == null || sortData.flag == null || sortData.flag.length() ==0 || style!=null) ?  '0' : sortData.flag.charAt(0);
     }
     // 是否允许聚合搜索 sortData.flag的第二个字符为‘1’时允许聚搜
     public boolean enableFastSearch(){  return sortData.flag == null || sortData.flag.length() < 2 || (sortData.flag.charAt(1) == '1'); }
@@ -142,8 +146,10 @@ public class GridFragment extends BaseLazyFragment {
         if(mGridView != null) mGridView.requestFocus();
         return true;
     }
+
+    private ImgUtil.Style style;
     // 更改当前页面
-    private void createView(){
+    private void createView() {
         this.saveCurrentView(); // 保存当前页面
         if(mGridView == null){ // 从layout中拿view
             mGridView = findViewById(R.id.mGridView);
@@ -159,7 +165,8 @@ public class GridFragment extends BaseLazyFragment {
             mGridView.setVisibility(View.VISIBLE);
         }
         mGridView.setHasFixedSize(true);
-        gridAdapter = new GridAdapter(isFolederMode());
+        style=ImgUtil.initStyle();
+        gridAdapter = new GridAdapter(isFolederMode(), style);
         this.page =1;
         this.maxPage =1;
         this.isLoad = false;
@@ -171,7 +178,15 @@ public class GridFragment extends BaseLazyFragment {
         if(isFolederMode()){
             mGridView.setLayoutManager(new V7LinearLayoutManager(this.mContext, 1, false));
         }else{
-            mGridView.setLayoutManager(new V7GridLayoutManager(this.mContext, isBaseOnWidth() ? 5 : 6));
+            int spanCount = isBaseOnWidth() ? 5 : 6;
+            if (style != null) {
+                spanCount = ImgUtil.spanCountByStyle(style, spanCount);
+            }
+            if (spanCount == 1) {
+                mGridView.setLayoutManager(new V7LinearLayoutManager(mContext, spanCount, false));
+            } else {
+                mGridView.setLayoutManager(new V7GridLayoutManager(mContext, spanCount));
+            }
         }
 
         gridAdapter.setOnLoadMoreListener(new BaseQuickAdapter.RequestLoadMoreListener() {
@@ -231,6 +246,7 @@ public class GridFragment extends BaseLazyFragment {
                                 jumpActivity(SearchActivity.class, bundle);
                             }
                         }else {
+                            bundle.putString("picture", video.pic);
                             jumpActivity(DetailActivity.class, bundle);
                         }
                     }

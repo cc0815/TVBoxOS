@@ -202,7 +202,8 @@
 # 迅雷下载模块
 -keep class com.xunlei.downloadlib.** {*;}
 # quickjs引擎
--keep class com.github.tvbox.quickjs.** {*;}
+#-keep class com.github.tvbox.quickjs.** {*;}
+-keep class com.whl.quickjs.** {*;}
 # 支持影视的ali相关的jar
 -keep class com.google.gson.**{*;}
 # Zxing
@@ -214,3 +215,12 @@
 # Cronet支持http3
 -keep class com.google.net.cronet.**{*;}
 -keep class org.chromium.net.**{*;}
+
+# Nano
+-keep class fi.iki.elonen.** { *; }
+
+# Python支持
+#-keep public class com.undcover.freedom.pyramid.** { *; }
+#-dontwarn com.undcover.freedom.pyramid.**
+#-keep public class com.chaquo.python.** { *; }
+#-dontwarn com.chaquo.python.**

@@ -18,6 +18,7 @@ import com.github.tvbox.osc.server.ControlManager;
 import com.github.tvbox.osc.ui.adapter.ApiHistoryDialogAdapter;
 import com.github.tvbox.osc.ui.tv.QRCodeGen;
 import com.github.tvbox.osc.util.HawkConfig;
+import com.github.tvbox.osc.util.HistoryHelper;
 import com.hjq.permissions.OnPermissionCallback;
 import com.hjq.permissions.Permission;
 import com.hjq.permissions.XXPermissions;
@@ -68,13 +69,7 @@ public class ApiDialog extends BaseDialog {
             public void onClick(View v) {
                 String newApi = inputApi.getText().toString().trim();
                 if (!newApi.isEmpty()) {
-                    ArrayList<String> history = Hawk.get(HawkConfig.API_HISTORY, new ArrayList<String>());
-                    if (!history.contains(newApi))
-                        history.add(0, newApi);
-                    if (history.size() > 30)
-                        history.remove(30);
-                    Hawk.put(HawkConfig.API_HISTORY, history);
-//                    String newLiveApi = inputApi.getText().toString().trim();
+                    HistoryHelper.setApiHistory(newApi);
                     if(!newApi.equals(Hawk.get(HawkConfig.API_URL, newApi))){
                         inputApiLive.setText(newApi);
                         Hawk.put(HawkConfig.LIVE_API_URL, newApi);
@@ -89,14 +84,7 @@ public class ApiDialog extends BaseDialog {
             public void onClick(View v) {
                 String newApi = inputApiLive.getText().toString().trim();
                 if (!newApi.isEmpty()) {
-                    ArrayList<String> history = Hawk.get(HawkConfig.LIVE_API_HISTORY, new ArrayList<String>());
-                    if (!history.contains(newApi)) {
-                        history.add(0, newApi);
-                    }
-                    if (history.size() > 30) {
-                        history.remove(30);
-                    }
-                    Hawk.put(HawkConfig.LIVE_API_HISTORY, history);
+                    HistoryHelper.setLiveApiHistory(newApi);
                 }
                 Hawk.put(HawkConfig.LIVE_API_URL, newApi);
                 dismiss();
@@ -167,12 +155,7 @@ public class ApiDialog extends BaseDialog {
                 if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_SEARCH || (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
                     String newApi = inputApi.getText().toString().trim();
                     if (!newApi.isEmpty()) {
-                        ArrayList<String> history = Hawk.get(HawkConfig.API_HISTORY, new ArrayList<String>());
-                        if (!history.contains(newApi))
-                            history.add(0, newApi);
-                        if (history.size() > 30)
-                            history.remove(30);
-                        Hawk.put(HawkConfig.API_HISTORY, history);
+                        HistoryHelper.setApiHistory(newApi);
 
                         if(!newApi.equals(Hawk.get(HawkConfig.API_URL, newApi))){
                             inputApiLive.setText(newApi);

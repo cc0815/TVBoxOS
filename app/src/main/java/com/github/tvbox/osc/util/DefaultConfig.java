@@ -14,6 +14,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -135,8 +136,9 @@ public class DefaultConfig {
 
     public static String safeJsonString(JsonObject obj, String key, String defaultVal) {
         try {
-            if (obj.has(key))
-                return obj.getAsJsonPrimitive(key).getAsString().trim();
+            if (obj.has(key)){
+                return obj.get(key).isJsonObject() || obj.get(key).isJsonArray()?obj.get(key).toString().trim():obj.getAsJsonPrimitive(key).getAsString().trim();
+            }
             else
                 return defaultVal;
         } catch (Throwable th) {
@@ -176,5 +178,19 @@ public class DefaultConfig {
         if (urlOri.startsWith("proxy://"))
             return urlOri.replace("proxy://", ControlManager.get().getAddress(true) + "proxy?");
         return urlOri;
+    }
+
+    private static final List<String> NO_AD_KEYWORDS = Arrays.asList(
+            "tx", "youku", "qq","qiyi", "letv", "leshi","sohu", "mgtv", "bilibili", "imgo","优酷", "芒果", "腾讯", "奇艺"
+    );
+
+    public static boolean noAd(String flag) {
+        if (flag == null || flag.isEmpty()) return false;
+        for (String keyword : NO_AD_KEYWORDS) {
+            if (flag.equals(keyword) || flag.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

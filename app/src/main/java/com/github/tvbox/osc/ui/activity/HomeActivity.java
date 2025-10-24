@@ -14,6 +14,8 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
 import android.view.animation.BounceInterpolator;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -49,8 +51,11 @@ import com.github.tvbox.osc.ui.tv.widget.NoScrollViewPager;
 import com.github.tvbox.osc.ui.tv.widget.ViewObj;
 import com.github.tvbox.osc.util.AppManager;
 import com.github.tvbox.osc.util.DefaultConfig;
+import com.github.tvbox.osc.util.FastClickCheckUtil;
+import com.github.tvbox.osc.util.FileUtils;
 import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.LOG;
+import com.github.tvbox.osc.util.MD5;
 import com.github.tvbox.osc.viewmodel.SourceViewModel;
 import com.orhanobut.hawk.Hawk;
 import com.owen.tvrecyclerview.widget.TvRecyclerView;
@@ -62,6 +67,7 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
 import java.lang.reflect.Field;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -227,8 +233,27 @@ public class HomeActivity extends BaseActivity {
         tvName.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                FastClickCheckUtil.check(v);
                 if(dataInitOk && jarInitOk){
-                    showSiteSwitch();
+                    String cspCachePath = FileUtils.getFilePath()+"/csp/";
+                    String jar=ApiConfig.get().getHomeSourceBean().getJar();
+                    String jarUrl=!jar.isEmpty()?jar:ApiConfig.get().getSpider();
+                    File cspCacheDir = new File(cspCachePath + MD5.string2MD5(jarUrl)+".jar");
+                    Toast.makeText(mContext, "jar缓存已清除", Toast.LENGTH_LONG).show();
+                    if (!cspCacheDir.exists()){
+                        refreshHome();
+                        return;
+                    }
+                    new Thread(() -> {
+                        try {
+                            FileUtils.deleteFile(cspCacheDir);
+                            ApiConfig.get().clearJarLoader();
+                            refreshHome();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }).start();
+
                 }else {
                     jumpActivity(SettingActivity.class);
                 }
@@ -237,16 +262,7 @@ public class HomeActivity extends BaseActivity {
         tvName.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View v) {
-                if(dataInitOk && jarInitOk){
-                    Intent intent = new Intent(getApplicationContext(), HomeActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    Bundle bundle = new Bundle();
-                    bundle.putBoolean("useCache", true);
-                    intent.putExtras(bundle);
-                    HomeActivity.this.startActivity(intent);
-                }else {
-                    jumpActivity(SettingActivity.class);
-                }
+                jumpActivity(SettingActivity.class);
                 return true;
             }
         });
@@ -254,11 +270,18 @@ public class HomeActivity extends BaseActivity {
         //mHandler.postDelayed(mFindFocus, 500);
     }
 
+
+    private boolean skipNextUpdate = false;
+
     private void initViewModel() {
         sourceViewModel = new ViewModelProvider(this).get(SourceViewModel.class);
         sourceViewModel.sortResult.observe(this, new Observer<AbsSortXml>() {
             @Override
             public void onChanged(AbsSortXml absXml) {
+                if (skipNextUpdate) {
+                    skipNextUpdate = false;
+                    return;
+                }
                 showSuccess();
                 if (absXml != null && absXml.classes != null && absXml.classes.sortList != null) {
                     sortAdapter.setNewData(DefaultConfig.adjustSort(ApiConfig.get().getHomeSourceBean().getKey(), absXml.classes.sortList, true));
@@ -266,6 +289,9 @@ public class HomeActivity extends BaseActivity {
                     sortAdapter.setNewData(DefaultConfig.adjustSort(ApiConfig.get().getHomeSourceBean().getKey(), new ArrayList<>(), true));
                 }
                 initViewPager(absXml);
+                SourceBean home = ApiConfig.get().getHomeSourceBean();
+                if (home != null && home.getName() != null && !home.getName().isEmpty()) tvName.setText(home.getName());
+                tvName.clearAnimation();
             }
         });
     }
@@ -274,9 +300,6 @@ public class HomeActivity extends BaseActivity {
     private boolean jarInitOk = false;
 
     private void initData() {
-        SourceBean home = ApiConfig.get().getHomeSourceBean();
-        if (home != null && home.getName() != null && !home.getName().isEmpty())
-            tvName.setText(home.getName());
         if (dataInitOk && jarInitOk) {
             sourceViewModel.getSort(ApiConfig.get().getHomeSourceBean().getKey());
             if (hasPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
@@ -289,6 +312,7 @@ public class HomeActivity extends BaseActivity {
             }
             return;
         }
+        tvNameAnimation();
         showLoading();
         if (dataInitOk && !jarInitOk) {
             if (!ApiConfig.get().getSpider().isEmpty()) {
@@ -299,8 +323,7 @@ public class HomeActivity extends BaseActivity {
                         mHandler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
-//                                if (!useCacheConfig)
-//                                    Toast.makeText(HomeActivity.this, "自定义jar加载成功", Toast.LENGTH_SHORT).show();
+//                                if (!useCacheConfig) Toast.makeText(HomeActivity.this, "自定义jar加载成功", Toast.LENGTH_SHORT).show();
                                 initData();
                             }
                         }, 50);
@@ -319,13 +342,14 @@ public class HomeActivity extends BaseActivity {
                     @Override
                     public void error(String msg) {
                         jarInitOk = true;
-                        mHandler.post(new Runnable() {
+                        dataInitOk = true;
+                        mHandler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
-                                Toast.makeText(HomeActivity.this, "jar加载失败;尝试加载上一次缓存", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(HomeActivity.this, msg+"; 尝试加载最近一次的jar", Toast.LENGTH_SHORT).show();
                                 initData();
                             }
-                        });
+                        },50);
                     }
                 });
             }
@@ -452,51 +476,63 @@ public class HomeActivity extends BaseActivity {
     @SuppressLint("NotifyDataSetChanged")
     @Override
     public void onBackPressed() {
-
-        // takagen99: Add check for VOD Delete Mode
+        // 打断加载
+        if (isLoading()) {
+            refreshEmpty();
+            return;
+        }
+        // 如果处于 VOD 删除模式，则退出该模式并刷新界面
         if (HawkConfig.hotVodDelete) {
             HawkConfig.hotVodDelete = false;
             UserFragment.homeHotVodAdapter.notifyDataSetChanged();
-        } else {
-            int i;
-            if (this.fragments.size() <= 0 || this.sortFocused >= this.fragments.size() || (i = this.sortFocused) < 0) {
-                exit();
+            return;
+        }
+
+        // 检查 fragments 状态
+        if (this.fragments.size() <= 0 || this.sortFocused >= this.fragments.size() || this.sortFocused < 0) {
+            doExit();
+            return;
+        }
+
+        BaseLazyFragment baseLazyFragment = this.fragments.get(this.sortFocused);
+        if (baseLazyFragment instanceof GridFragment) {
+            GridFragment grid = (GridFragment) baseLazyFragment;
+            // 如果当前 Fragment 能恢复之前保存的 UI 状态，则直接返回
+            if (grid.restoreView()) {
                 return;
             }
-            BaseLazyFragment baseLazyFragment = this.fragments.get(i);
-            if (baseLazyFragment instanceof GridFragment) {
-                View view = this.sortFocusView;
-                GridFragment grid = (GridFragment) baseLazyFragment;
-                if (grid.restoreView()) {
-                    return;
-                }// 还原上次保存的UI内容
-                if (view != null && !view.isFocused()) {
-                    this.sortFocusView.requestFocus();
-                } else if (this.sortFocused != 0) {
-                    this.mGridView.setSelection(0);
-                } else {
-                    exit();
-                }
-            } else if (baseLazyFragment instanceof UserFragment && UserFragment.tvHotList1.canScrollVertically(-1)) {
-                UserFragment.tvHotList1.scrollToPosition(0);
+            // 如果 sortFocusView 存在且没有获取焦点，则请求焦点
+            if (this.sortFocusView != null && !this.sortFocusView.isFocused()) {
+                this.sortFocusView.requestFocus();
+            }
+            // 如果当前不是第一个界面，则将列表设置到第一项
+            else if (this.sortFocused != 0) {
                 this.mGridView.setSelection(0);
             } else {
-                exit();
+                doExit();
             }
+        } else if (baseLazyFragment instanceof UserFragment && UserFragment.tvHotList.canScrollVertically(-1)) {
+            // 如果 UserFragment 列表可以向上滚动，则滚动到顶部
+            UserFragment.tvHotList.scrollToPosition(0);
+            this.mGridView.setSelection(0);
+        } else {
+            doExit();
         }
     }
 
-    private void exit() {
+    private void doExit() {
+        // 如果两次返回间隔小于 2000 毫秒，则退出应用
         if (System.currentTimeMillis() - mExitTime < 2000) {
-            //这一段借鉴来自 q群老哥 IDCardWeb
+            AppManager.getInstance().finishAllActivity();
             EventBus.getDefault().unregister(this);
-            AppManager.getInstance().appExit(0);
             ControlManager.get().stopServer();
             finish();
-            super.onBackPressed();
+            android.os.Process.killProcess(android.os.Process.myPid());
+            System.exit(0);
         } else {
+            // 否则仅提示用户，再按一次退出应用
             mExitTime = System.currentTimeMillis();
-            Toast.makeText(mContext, "再按一次返回键退出应用", Toast.LENGTH_SHORT).show();            
+            Toast.makeText(mContext, "再按一次返回键退出应用", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -631,49 +667,75 @@ public class HomeActivity extends BaseActivity {
         ControlManager.get().stopServer();
     }
 
+    private SelectDialog<SourceBean> mSiteSwitchDialog;
+
     void showSiteSwitch() {
         List<SourceBean> sites = ApiConfig.get().getSwitchSourceBeanList();
-        if (sites.size() > 0) {
-            SelectDialog<SourceBean> dialog = new SelectDialog<>(HomeActivity.this);
-            TvRecyclerView tvRecyclerView = dialog.findViewById(R.id.list);
-            int spanCount;
-            spanCount = (int)Math.floor(sites.size()/20);
+        if (sites.isEmpty()) return;
+        int select = sites.indexOf(ApiConfig.get().getHomeSourceBean());
+        if (select < 0 || select >= sites.size()) select = 0;
+        if (mSiteSwitchDialog == null) {
+            mSiteSwitchDialog = new SelectDialog<>(HomeActivity.this);
+            TvRecyclerView tvRecyclerView = mSiteSwitchDialog.findViewById(R.id.list);
+            // 根据 sites 数量动态计算列数
+            int spanCount = (int) Math.floor(sites.size() / 20.0);
             spanCount = Math.min(spanCount, 2);
-            tvRecyclerView.setLayoutManager(new V7GridLayoutManager(dialog.getContext(), spanCount+1));
-            ConstraintLayout cl_root = dialog.findViewById(R.id.cl_root);
+            tvRecyclerView.setLayoutManager(new V7GridLayoutManager(mSiteSwitchDialog.getContext(), spanCount + 1));
+            // 设置对话框宽度
+            ConstraintLayout cl_root = mSiteSwitchDialog.findViewById(R.id.cl_root);
             ViewGroup.LayoutParams clp = cl_root.getLayoutParams();
-            clp.width = AutoSizeUtils.mm2px(dialog.getContext(), 380+200*spanCount);
-            dialog.setTip("请选择首页数据源");
-            int select = sites.indexOf(ApiConfig.get().getHomeSourceBean());
-            if (select<0) select = 0;
-            dialog.setAdapter(new SelectDialogAdapter.SelectDialogInterface<SourceBean>() {
-                @Override
-                public void click(SourceBean value, int pos) {
-                    ApiConfig.get().setSourceBean(value);
-                    Intent intent = new Intent(getApplicationContext(), HomeActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    Bundle bundle = new Bundle();
-                    bundle.putBoolean("useCache", true);
-                    intent.putExtras(bundle);
-                    HomeActivity.this.startActivity(intent);
-                }
-
-                @Override
-                public String getDisplay(SourceBean val) {
-                    return val.getName();
-                }
-            }, new DiffUtil.ItemCallback<SourceBean>() {
-                @Override
-                public boolean areItemsTheSame(@NonNull @NotNull SourceBean oldItem, @NonNull @NotNull SourceBean newItem) {
-                    return oldItem == newItem;
-                }
-
-                @Override
-                public boolean areContentsTheSame(@NonNull @NotNull SourceBean oldItem, @NonNull @NotNull SourceBean newItem) {
-                    return oldItem.getKey().equals(newItem.getKey());
-                }
-            }, sites, select);
-            dialog.show();
+            clp.width = AutoSizeUtils.mm2px(mSiteSwitchDialog.getContext(), 380 + 200 * spanCount);
+            mSiteSwitchDialog.setTip("请选择首页数据源");
         }
+        mSiteSwitchDialog.setAdapter(new SelectDialogAdapter.SelectDialogInterface<SourceBean>() {
+            @Override
+            public void click(SourceBean value, int pos) {
+                ApiConfig.get().setSourceBean(value);
+                refreshHome();
+            }
+            @Override
+            public String getDisplay(SourceBean val) {
+                return val.getName();
+            }
+        }, new DiffUtil.ItemCallback<SourceBean>() {
+            @Override
+            public boolean areItemsTheSame(@NonNull SourceBean oldItem, @NonNull SourceBean newItem) {
+                return oldItem == newItem;
+            }
+            @Override
+            public boolean areContentsTheSame(@NonNull SourceBean oldItem, @NonNull SourceBean newItem) {
+                return oldItem.getKey().equals(newItem.getKey());
+            }
+        }, sites, select);
+        mSiteSwitchDialog.show();
+    }
+
+    private void refreshHome()
+    {
+        Intent intent = new Intent(getApplicationContext(), HomeActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        Bundle bundle = new Bundle();
+        bundle.putBoolean("useCache", true);
+        intent.putExtras(bundle);
+        HomeActivity.this.startActivity(intent);
+    }
+
+    private void refreshEmpty()
+    {
+        skipNextUpdate=true;
+        showSuccess();
+        sortAdapter.setNewData(DefaultConfig.adjustSort(ApiConfig.get().getHomeSourceBean().getKey(), new ArrayList<>(), true));
+        initViewPager(null);
+        tvName.clearAnimation();
+    }
+
+    private void tvNameAnimation()
+    {
+        AlphaAnimation blinkAnimation = new AlphaAnimation(0.0f, 1.0f);
+        blinkAnimation.setDuration(500);
+        blinkAnimation.setStartOffset(20);
+        blinkAnimation.setRepeatMode(Animation.REVERSE);
+        blinkAnimation.setRepeatCount(Animation.INFINITE);
+        tvName.startAnimation(blinkAnimation);
     }
 }

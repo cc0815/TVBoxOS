@@ -13,7 +13,7 @@
         <LinearLayout
             android:id="@+id/tv_top_l_container"
             android:layout_width="0dp"
-            android:layout_weight="4"
+            android:layout_weight="3"
             android:layout_height="wrap_content"
             android:tag="tv_top_container"
             android:visibility="gone"
@@ -30,7 +30,6 @@
                 android:layout_gravity="left"
                 android:ellipsize="end"
                 android:singleLine="true"
-                android:width="680dp"
                 android:paddingTop="@dimen/vs_5"
                 android:paddingLeft="@dimen/vs_10"
                 android:text="@string/http"
@@ -76,6 +75,21 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="right">
+
+                <TextView
+                    android:id="@+id/net_play_speed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:paddingTop="@dimen/vs_5"
+                    android:paddingRight="@dimen/vs_10"
+                    android:tag="vod_control_pause_time"
+                    android:text="0Gbs"
+                    android:textColor="@android:color/white"
+                    android:textSize="@dimen/ts_20"
+                    tools:ignore="RtlSymmetry" />
 
                 <TextView
                     android:id="@+id/tv_seek_time"
@@ -157,6 +171,7 @@
         tools:visibility="visible">
 
         <LinearLayout
+            android:id="@+id/play_btn_group"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="@dimen/vs_10"
@@ -419,7 +434,7 @@
                 android:textSize="@dimen/ts_20" />
 
             <com.owen.tvrecyclerview.widget.TvRecyclerView
-                android:id="@+id/mGridView"
+                android:id="@+id/mGridParseView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:clipChildren="false"
@@ -648,5 +663,24 @@
         android:paddingHorizontal="@dimen/vs_20"
         android:src="@drawable/icon_unlock"
         android:visibility="invisible" />
+
+    <FrameLayout
+        android:id="@+id/play_speed_3_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_speed_indicator"
+        android:visibility="gone"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/tv_speed_3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="3.0 X"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </FrameLayout>
 
 </FrameLayout>

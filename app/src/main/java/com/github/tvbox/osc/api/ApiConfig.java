@@ -1,5 +1,7 @@
 package com.github.tvbox.osc.api;
 
+import static com.github.tvbox.osc.util.RegexUtils.getPattern;
+
 import android.app.Activity;
 import android.net.Uri;
 import android.text.TextUtils;
@@ -7,7 +9,9 @@ import android.util.Base64;
 
 import com.github.catvod.crawler.JarLoader;
 import com.github.catvod.crawler.JsLoader;
+import com.github.catvod.crawler.pyLoader;
 import com.github.catvod.crawler.Spider;
+import com.github.catvod.crawler.python.IPyLoader;
 import com.github.tvbox.osc.base.App;
 import com.github.tvbox.osc.bean.LiveChannelGroup;
 import com.github.tvbox.osc.bean.IJKCode;
@@ -61,34 +65,37 @@ import java.util.regex.Pattern;
  */
 public class ApiConfig {
     private static ApiConfig instance;
-    private LinkedHashMap<String, SourceBean> sourceBeanList;
+    private final LinkedHashMap<String, SourceBean> sourceBeanList;
     private SourceBean mHomeSource;
     private ParseBean mDefaultParse;
-    private List<LiveChannelGroup> liveChannelGroupList;
-    private List<ParseBean> parseBeanList;
+    private final List<LiveChannelGroup> liveChannelGroupList;
+    private final List<ParseBean> parseBeanList;
     private List<String> vipParseFlags;
     private Map<String,String> myHosts;
     private List<IJKCode> ijkCodes;
     private String spider = null;
     public String wallpaper = "";
 
-    private SourceBean emptyHome = new SourceBean();
+    private final SourceBean emptyHome = new SourceBean();
 
-    private JarLoader jarLoader = new JarLoader();
-    private JsLoader jsLoader = new JsLoader();
-    private Gson gson;
+    private final JarLoader jarLoader = new JarLoader();
+    private final JsLoader jsLoader = new JsLoader();
+    private final IPyLoader pyLoader =  new pyLoader();
+    private final Gson gson;
 
-    private String userAgent = "okhttp/3.15";
+    private final String userAgent = "okhttp/3.15";
 
-    private String requestAccept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9";
+    private final String requestAccept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9";
 
     private String defaultLiveObjString="{\"lives\":[{\"name\":\"txt_m3u\",\"type\":0,\"url\":\"txt_m3u_url\"}]}";
     private ApiConfig() {
+        clearLoader();
         sourceBeanList = new LinkedHashMap<>();
         liveChannelGroupList = new ArrayList<>();
         parseBeanList = new ArrayList<>();
         searchSourceBeanList = new ArrayList<>();
         gson = new Gson();
+        Hawk.put(HawkConfig.LIVE_GROUP_LIST,new JsonArray());
         loadDefaultConfig();
     }
 
@@ -107,7 +114,7 @@ public class ApiConfig {
         String content = json;
         try {
             if (AES.isJson(content)) return content;
-            Pattern pattern = Pattern.compile("[A-Za-z0]{8}\\*\\*");
+            Pattern pattern = getPattern("[A-Za-z0]{8}\\*\\*");
             Matcher matcher = pattern.matcher(content);
             if(matcher.find()){
                 content=content.substring(content.indexOf(matcher.group()) + 10);
@@ -132,7 +139,7 @@ public class ApiConfig {
     }
 
     private static byte[] getImgJar(String body){
-        Pattern pattern = Pattern.compile("[A-Za-z0]{8}\\*\\*");
+        Pattern pattern = getPattern("[A-Za-z0]{8}\\*\\*");
         Matcher matcher = pattern.matcher(body);
         if(matcher.find()){
             body = body.substring(body.indexOf(matcher.group()) + 10);
@@ -176,6 +183,7 @@ public class ApiConfig {
                 parseLiveJson(liveApiUrl,defaultLiveObjString);
             }else {
                 File live_cache = new File(App.getInstance().getFilesDir().getAbsolutePath() + "/" + MD5.encode(liveApiUrl));
+                LOG.i("echo-加载独立直播");
                 if (useCache && live_cache.exists()) {
                     try {
                         parseLiveJson(liveApiUrl, live_cache);
@@ -248,6 +256,10 @@ public class ApiConfig {
             }
         }
         String configUrl=configUrl(apiUrl);
+        // 使用内部存储，将当前配置地址写入到应用的私有目录中
+        File configUrlFile = new File(App.getInstance().getFilesDir().getAbsolutePath() + "/config_url");
+        FileUtils.saveCache(configUrlFile,configUrl);
+
         OkGo.<String>get(configUrl)
                 .headers("User-Agent", userAgent)
                 .headers("Accept", requestAccept)
@@ -256,6 +268,7 @@ public class ApiConfig {
                     public void onSuccess(Response<String> response) {
                         try {
                             String json = response.body();
+//                            LOG.i("echo-ConfigJson"+json);
                             parseJson(apiUrl, json);
                             FileUtils.saveCache(cache,json);
                             callback.success();
@@ -302,28 +315,37 @@ public class ApiConfig {
         String[] urls = spider.split(";md5;");
         String jarUrl = urls[0];
         String md5 = urls.length > 1 ? urls[1].trim() : "";
-        File cache = new File(App.getInstance().getFilesDir().getAbsolutePath() + "/csp.jar");
+        File cache = new File(App.getInstance().getFilesDir().getAbsolutePath() + "/csp/"+MD5.string2MD5(jarUrl)+".jar");
 
         if (!md5.isEmpty() || useCache) {
             if (cache.exists() && (useCache || MD5.getFileMd5(cache).equalsIgnoreCase(md5))) {
                 if (jarLoader.load(cache.getAbsolutePath())) {
                     callback.success();
                 } else {
-                    callback.error("");
+                    callback.error("md5缓存失效");
                 }
                 return;
+            }
+        }else {
+            if (Boolean.parseBoolean(jarCache) && cache.exists() && !FileUtils.isWeekAgo(cache)) {
+                LOG.i("echo-load jar jarCache:"+jarUrl);
+                if (jarLoader.load(cache.getAbsolutePath())) {
+                    callback.success();
+                    return;
+                }
             }
         }
 
         boolean isJarInImg = jarUrl.startsWith("img+");
         jarUrl = jarUrl.replace("img+", "");
+        LOG.i("echo-load jar start:"+jarUrl);
         OkGo.<File>get(jarUrl)
                 .headers("User-Agent", userAgent)
                 .headers("Accept", requestAccept)
                 .execute(new AbsCallback<File>() {
 
                     @Override
-                    public File convertResponse(okhttp3.Response response) throws Throwable {
+                    public File convertResponse(okhttp3.Response response){
                         File cacheDir = cache.getParentFile();
                         assert cacheDir != null;
                         if (!cacheDir.exists()) cacheDir.mkdirs();
@@ -336,7 +358,8 @@ public class ApiConfig {
                                 LOG.i("echo---jar Response: " + respData);
                                 byte[] imgJar = getImgJar(respData);
                                 if (imgJar == null || imgJar.length == 0) {
-                                    throw new IOException("Generated JAR data is empty");
+                                    LOG.e("echo---Generated JAR data is empty");
+                                    callback.error("JAR 是空的");
                                 }
                                 fos.write(imgJar);
                             } else {
@@ -369,11 +392,11 @@ public class ApiConfig {
                                 }
                             } catch (Exception e) {
                                 LOG.e("echo---jar Loader threw exception: " + e.getMessage());
-                                callback.error("加载异常: " + e.getMessage());
+                                callback.error("JAR加载异常: ");
                             }
                         } else {
                             LOG.e("echo---jar File not found");
-                            callback.error("文件不存在");
+                            callback.error("JAR文件不存在");
                         }
                     }
 
@@ -383,7 +406,8 @@ public class ApiConfig {
                         if (ex != null) {
                             LOG.i("echo---jar Request failed: " + ex.getMessage());
                         }
-                        callback.error(ex != null ? ex.getMessage() : "未知网络错误");
+                        if(cache.exists())jarLoader.load(cache.getAbsolutePath());
+                        callback.error("网络错误");
                     }
                 });
     }
@@ -399,12 +423,13 @@ public class ApiConfig {
         parseJson(apiUrl, sb.toString());
     }
 
+    private static  String jarCache ="true";
     private void parseJson(String apiUrl, String jsonStr) {
-        LOG.i("echo-parseJson"+jsonStr);
-
+//        pyLoader.setConfig(jsonStr);
         JsonObject infoJson = gson.fromJson(jsonStr, JsonObject.class);
         // spider
         spider = DefaultConfig.safeJsonString(infoJson, "spider", "");
+        jarCache = DefaultConfig.safeJsonString(infoJson, "jarCache", "true");
         // wallpaper
         wallpaper = DefaultConfig.safeJsonString(infoJson, "wallpaper", "");
         // 远端站点源
@@ -414,22 +439,23 @@ public class ApiConfig {
             SourceBean sb = new SourceBean();
             String siteKey = obj.get("key").getAsString().trim();
             sb.setKey(siteKey);
-            sb.setName(obj.get("name").getAsString().trim());
+            sb.setName(obj.has("name")?obj.get("name").getAsString().trim():siteKey);
             sb.setType(obj.get("type").getAsInt());
             sb.setApi(obj.get("api").getAsString().trim());
             sb.setSearchable(DefaultConfig.safeJsonInt(obj, "searchable", 1));
             sb.setQuickSearch(DefaultConfig.safeJsonInt(obj, "quickSearch", 1));
-            sb.setFilterable(DefaultConfig.safeJsonInt(obj, "filterable", 1));
-            sb.setPlayerUrl(DefaultConfig.safeJsonString(obj, "playUrl", ""));
-            if(obj.has("ext") && (obj.get("ext").isJsonObject() || obj.get("ext").isJsonArray())){
-                sb.setExt(obj.get("ext").toString());
+            if(siteKey.startsWith("py_")){
+                sb.setFilterable(1);
             }else {
-                sb.setExt(DefaultConfig.safeJsonString(obj, "ext", ""));
+                sb.setFilterable(DefaultConfig.safeJsonInt(obj, "filterable", 1));
             }
+            sb.setPlayerUrl(DefaultConfig.safeJsonString(obj, "playUrl", ""));
+            sb.setExt(DefaultConfig.safeJsonString(obj, "ext", ""));
             sb.setJar(DefaultConfig.safeJsonString(obj, "jar", ""));
             sb.setPlayerType(DefaultConfig.safeJsonInt(obj, "playerType", -1));
             sb.setCategories(DefaultConfig.safeJsonStringList(obj, "categories"));
             sb.setClickSelector(DefaultConfig.safeJsonString(obj, "click", ""));
+            sb.setStyle(DefaultConfig.safeJsonString(obj, "style", ""));
             if (firstSite == null && sb.getFilterable()==1)
                 firstSite = sb;
             sourceBeanList.put(siteKey, sb);
@@ -460,6 +486,7 @@ public class ApiConfig {
                 pb.setType(DefaultConfig.safeJsonInt(obj, "type", 0));
                 parseBeanList.add(pb);
             }
+            if(!parseBeanList.isEmpty())addSuperParse();
         }
         // 获取默认解析
         if (parseBeanList != null && parseBeanList.size() > 0) {
@@ -503,15 +530,16 @@ public class ApiConfig {
                 JsonObject livesOBJ = lives_groups.get(live_group_index).getAsJsonObject();
                 loadLiveApi(livesOBJ);
             }
-            myHosts = new HashMap<>();
-            if (infoJson.has("hosts")) {
-                JsonArray hostsArray = infoJson.getAsJsonArray("hosts");
-                for (int i = 0; i < hostsArray.size(); i++) {
-                    String entry = hostsArray.get(i).getAsString();
-                    String[] parts = entry.split("=", 2); // 只分割一次，防止 value 里有 =
-                    if (parts.length == 2) {
-                        myHosts.put(parts[0], parts[1]);
-                    }
+        }
+
+        myHosts = new HashMap<>();
+        if (infoJson.has("hosts")) {
+            JsonArray hostsArray = infoJson.getAsJsonArray("hosts");
+            for (int i = 0; i < hostsArray.size(); i++) {
+                String entry = hostsArray.get(i).getAsString();
+                String[] parts = entry.split("=", 2); // 只分割一次，防止 value 里有 =
+                if (parts.length == 2) {
+                    myHosts.put(parts[0], parts[1]);
                 }
             }
         }
@@ -521,6 +549,7 @@ public class ApiConfig {
             VideoParseRuler.clearRule();
             for(JsonElement oneHostRule : infoJson.getAsJsonArray("rules")) {
                 JsonObject obj = (JsonObject) oneHostRule;
+                //嗅探过滤规则
                 if (obj.has("host")) {
                     String host = obj.get("host").getAsString();
                     if (obj.has("rule")) {
@@ -546,6 +575,7 @@ public class ApiConfig {
                         }
                     }
                 }
+                //广告过滤规则
                 if (obj.has("hosts") && obj.has("regex")) {
                     ArrayList<String> rule = new ArrayList<>();
                     ArrayList<String> ads = new ArrayList<>();
@@ -562,12 +592,29 @@ public class ApiConfig {
                         VideoParseRuler.addHostRegex(host, ads);
                     }
                 }
+                //嗅探脚本规则 如 click
+                if (obj.has("hosts") && obj.has("script")) {
+                    ArrayList<String> scripts = new ArrayList<>();
+                    JsonArray scriptArray = obj.getAsJsonArray("script");
+                    for (JsonElement one : scriptArray) {
+                        String script = one.getAsString();
+                        scripts.add(script);
+                    }
+                    JsonArray array = obj.getAsJsonArray("hosts");
+                    for (JsonElement one : array) {
+                        String host = one.getAsString();
+                        VideoParseRuler.addHostScript(host, scripts);
+                    }
+                }
             }
         }
 
         if (infoJson.has("doh")) {
             String doh_json = infoJson.getAsJsonArray("doh").toString();
-            Hawk.put(HawkConfig.DOH_JSON,doh_json);
+            if(!Hawk.get(HawkConfig.DOH_JSON, "").equals(doh_json)){
+                Hawk.put(HawkConfig.DOH_URL, 0);
+                Hawk.put(HawkConfig.DOH_JSON,doh_json);
+            }
         }else {
             Hawk.put(HawkConfig.DOH_JSON,"");
         }
@@ -637,8 +684,12 @@ public class ApiConfig {
         bReader.close();
         parseLiveJson(apiUrl, sb.toString());
     }
+
+    private String liveSpider="";
     private void parseLiveJson(String apiUrl, String jsonStr) {
         JsonObject infoJson = gson.fromJson(jsonStr, JsonObject.class);
+        // spider
+        liveSpider = DefaultConfig.safeJsonString(infoJson, "spider", "");
         // 直播源
         initLiveSettings();
         if(infoJson.has("lives")){
@@ -767,6 +818,7 @@ public class ApiConfig {
 
     public void loadLiveApi(JsonObject livesOBJ) {
         try {
+            LOG.i("echo-loadLiveApi");
             String lives = livesOBJ.toString();
             int index = lives.indexOf("proxy://");
             String url;
@@ -787,16 +839,39 @@ public class ApiConfig {
                 }
             } else {
                 String type= livesOBJ.get("type").getAsString();
-                if(type.equals("0")){
-                    url = livesOBJ.get("url").getAsString();
+                if(type.equals("0") || type.equals("3")){
+                    url = livesOBJ.has("url")?livesOBJ.get("url").getAsString():"";
+                    if(url.isEmpty())url=livesOBJ.has("api")?livesOBJ.get("api").getAsString():"";
+                    LOG.i("echo-liveurl"+url);
                     if(!url.startsWith("http://127.0.0.1")){
                         if(url.startsWith("http")){
                             url = Base64.encodeToString(url.getBytes("UTF-8"), Base64.DEFAULT | Base64.URL_SAFE | Base64.NO_WRAP);
                         }
                         url ="http://127.0.0.1:9978/proxy?do=live&type=txt&ext="+url;
                     }
-                    LOG.i("echo-url:"+url);
+                    if(type.equals("3")){
+                        String jarUrl = livesOBJ.has("jar")?livesOBJ.get("jar").getAsString().trim():"";
+                        String pyApi = livesOBJ.has("api")?livesOBJ.get("api").getAsString().trim():"";
+                        LOG.i("echo-pyApi1"+pyApi);
+                        if(pyApi.contains(".py")){
+                            LOG.i("echo-pyLoader.getSpider");
+                            String ext="";
+                            if(livesOBJ.has("ext") && (livesOBJ.get("ext").isJsonObject() || livesOBJ.get("ext").isJsonArray())){
+                                ext=livesOBJ.get("ext").toString();
+                            }else {
+                                ext=DefaultConfig.safeJsonString(livesOBJ, "ext", "");
+                            }
+
+                            pyLoader.getSpider(MD5.string2MD5(pyApi),pyApi,ext);
+                        }
+                        if(!jarUrl.isEmpty()){
+                            jarLoader.loadLiveJar(jarUrl);
+                        }else if(!liveSpider.isEmpty()){
+                            jarLoader.loadLiveJar(liveSpider);
+                        }
+                    }
                 }else {
+                    liveChannelGroupList.clear();
                     return;
                 }
             }
@@ -804,18 +879,29 @@ public class ApiConfig {
             if(livesOBJ.has("epg")){
                 String epg =livesOBJ.get("epg").getAsString();
                 Hawk.put(HawkConfig.EPG_URL,epg);
+            }else {
+                Hawk.put(HawkConfig.EPG_URL,"");
             }
             //直播播放器类型
             if(livesOBJ.has("playerType")){
                 String livePlayType =livesOBJ.get("playerType").getAsString();
                 Hawk.put(HawkConfig.LIVE_PLAY_TYPE,livePlayType);
+            }else {
+                Hawk.put(HawkConfig.LIVE_PLAY_TYPE,Hawk.get(HawkConfig.PLAY_TYPE, 0));
             }
             //设置UA
-            if(livesOBJ.has("ua")){
-                String ua =livesOBJ.get("ua").getAsString();
-                HashMap<String,String> liveHeader=new HashMap<>();
-                liveHeader.put("User-Agent",ua);
-                Hawk.put(HawkConfig.LIVE_WEB_HEADER,liveHeader);
+            if(livesOBJ.has("header")) {
+                JsonObject headerObj = livesOBJ.getAsJsonObject("header");
+                HashMap<String, String> liveHeader = new HashMap<>();
+                for (Map.Entry<String, JsonElement> entry : headerObj.entrySet()) {
+                    liveHeader.put(entry.getKey(), entry.getValue().getAsString());
+                }
+                Hawk.put(HawkConfig.LIVE_WEB_HEADER, liveHeader);
+            } else if(livesOBJ.has("ua")) {
+                String ua = livesOBJ.get("ua").getAsString();
+                HashMap<String,String> liveHeader = new HashMap<>();
+                liveHeader.put("User-Agent", ua);
+                Hawk.put(HawkConfig.LIVE_WEB_HEADER, liveHeader);
             }else {
                 Hawk.put(HawkConfig.LIVE_WEB_HEADER,null);
             }
@@ -828,18 +914,48 @@ public class ApiConfig {
         }
     }
 
+    private String currentLiveSpider;
+    public void setLiveJar(String liveJar)
+    {
+        if(liveJar.contains(".py")){
+           pyLoader.setRecentPyKey(liveJar);
+        }else {
+            String jarUrl=!liveJar.isEmpty()?liveJar:liveSpider;
+            jarLoader.setRecentJarKey(MD5.string2MD5(jarUrl));
+        }
+        currentLiveSpider=liveJar;
+    }
+
     public String getSpider() {
         return spider;
     }
 
     public Spider getCSP(SourceBean sourceBean) {
-        boolean js = sourceBean.getApi().endsWith(".js") || sourceBean.getApi().contains(".js?");
-        if (js) return jsLoader.getSpider(sourceBean.getKey(), sourceBean.getApi(), sourceBean.getExt(), sourceBean.getJar());
-        return jarLoader.getSpider(sourceBean.getKey(), sourceBean.getApi(), sourceBean.getExt(), sourceBean.getJar());
+        if (sourceBean.getApi().endsWith(".js") || sourceBean.getApi().contains(".js?")){
+            return jsLoader.getSpider(sourceBean.getKey(), sourceBean.getApi(), sourceBean.getExt(), sourceBean.getJar());
+        }
+        else if (sourceBean.getApi().contains(".py")) {
+            return pyLoader.getSpider(sourceBean.getKey(), sourceBean.getApi(), sourceBean.getExt());
+        }
+        else return jarLoader.getSpider(sourceBean.getKey(), sourceBean.getApi(), sourceBean.getExt(), sourceBean.getJar());
     }
 
-    public Object[] proxyLocal(Map param) {
-        return jarLoader.proxyInvoke(param);
+    public Spider getPyCSP(String url) {
+        return pyLoader.getSpider(MD5.string2MD5(url), url, "");
+    }
+
+    public Object[] proxyLocal(Map<String, String> param) {
+        if ("js".equals(param.get("do"))) {
+            return jsLoader.proxyInvoke(param);
+        }
+        String apiString;
+        if (Hawk.get(HawkConfig.PLAYER_IS_LIVE, false)) {
+            apiString = currentLiveSpider!=null?currentLiveSpider:"";
+        } else {
+            SourceBean sourceBean = ApiConfig.get().getHomeSourceBean();
+            apiString = sourceBean.getApi();
+        }
+        return apiString.contains(".py") ? pyLoader.proxyInvoke(param) : jarLoader.proxyInvoke(param);
     }
 
     public JSONObject jsonExt(String key, LinkedHashMap<String, String> jxs, String url) {
@@ -963,6 +1079,7 @@ public class ApiConfig {
 
     String fixContentPath(String url, String content) {
         if (content.contains("\"./")) {
+            url=url.replace("file://","clan://localhost/");
             if(!url.startsWith("http") && !url.startsWith("clan://")){
                 url = "http://" + url;
             }
@@ -974,5 +1091,26 @@ public class ApiConfig {
 
     public Map<String,String> getMyHost() {
         return myHosts;
+    }
+
+    public void clearJarLoader()
+    {
+        jarLoader.clear();
+    }
+
+    private void addSuperParse()
+    {
+        ParseBean superPb = new ParseBean();
+        superPb.setName("超级解析");
+        superPb.setUrl("SuperParse");
+        superPb.setExt("");
+        superPb.setType(4);
+        parseBeanList.add(0, superPb);
+    }
+
+    public void clearLoader(){
+        jarLoader.clear();
+        pyLoader.clear();
+        jsLoader.clear();
     }
 }

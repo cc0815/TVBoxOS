@@ -97,7 +97,7 @@ public class CollectActivity extends BaseActivity {
 
             @Override
             public void onItemSelected(TvRecyclerView parent, View itemView, int position) {
-                itemView.animate().scaleX(1.1f).scaleY(1.1f).setDuration(300).setInterpolator(new BounceInterpolator()).start();
+                itemView.animate().scaleX(1.05f).scaleY(1.05f).setDuration(300).setInterpolator(new BounceInterpolator()).start();
             }
 
             @Override
@@ -119,6 +119,7 @@ public class CollectActivity extends BaseActivity {
                             Bundle bundle = new Bundle();
                             bundle.putString("id", vodInfo.vodId);
                             bundle.putString("sourceKey", vodInfo.sourceKey);
+                            bundle.putString("picture", vodInfo.pic);
                             jumpActivity(DetailActivity.class, bundle);
                         } else {
                             Intent newIntent = new Intent(mContext, SearchActivity.class);

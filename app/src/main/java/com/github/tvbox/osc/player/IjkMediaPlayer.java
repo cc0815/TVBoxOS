@@ -6,6 +6,7 @@ import android.text.TextUtils;
 import com.github.tvbox.osc.api.ApiConfig;
 import com.github.tvbox.osc.bean.IJKCode;
 import com.github.tvbox.osc.server.ControlManager;
+import com.github.tvbox.osc.util.AudioTrackMemory;
 import com.github.tvbox.osc.util.FileUtils;
 import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.LOG;
@@ -15,6 +16,7 @@ import com.orhanobut.hawk.Hawk;
 import java.io.File;
 import java.net.URI;
 import java.net.URLEncoder;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -26,10 +28,13 @@ import xyz.doikki.videoplayer.ijk.IjkPlayer;
 public class IjkMediaPlayer extends IjkPlayer {
 
     private IJKCode codec = null;
+    protected String currentPlayPath;
+    private static AudioTrackMemory memory;
 
     public IjkMediaPlayer(Context context, IJKCode codec) {
         super(context);
         this.codec = codec;
+        memory = AudioTrackMemory.getInstance(context);
     }
 
     @Override
@@ -127,6 +132,7 @@ public class IjkMediaPlayer extends IjkPlayer {
         }
         setDataSourceHeader(headers);
         mMediaPlayer.setOption(tv.danmaku.ijk.media.player.IjkMediaPlayer.OPT_CATEGORY_FORMAT, "protocol_whitelist", "ijkio,ffio,async,cache,crypto,file,dash,http,https,ijkhttphook,ijkinject,ijklivehook,ijklongurl,ijksegment,ijktcphook,pipe,rtp,tcp,tls,udp,ijkurlhook,data");
+        currentPlayPath = path;
         super.setDataSource(path, null);
     }
 
@@ -226,9 +232,29 @@ public class IjkMediaPlayer extends IjkPlayer {
             mMediaPlayer.selectTrack(trackIndex);
         }
     }
+    public void setTrack(int trackIndex,String playKey) {
+        int audioSelected = mMediaPlayer.getSelectedTrack(ITrackInfo.MEDIA_TRACK_TYPE_AUDIO);
+        if (trackIndex!=audioSelected){
+            if (!playKey.isEmpty()) {
+                memory.save(playKey, trackIndex);
+            }
+            mMediaPlayer.selectTrack(trackIndex);
+        }
+    }
 
     public void setOnTimedTextListener(IMediaPlayer.OnTimedTextListener listener) {
         mMediaPlayer.setOnTimedTextListener(listener);
     }
 
+    public void loadDefaultTrack(TrackInfo trackInfo,String playKey) {
+        if(trackInfo!=null && trackInfo.getAudio().size()>1){
+            Integer trackIndex = memory.ijkLoad(playKey);
+            if (trackIndex == -1) {
+                int firsIndex=trackInfo.getAudio().get(0).index;
+                setTrack(firsIndex);
+                return;
+            };
+            setTrack(trackIndex);
+        }
+    }
 }
